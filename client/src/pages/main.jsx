@@ -10,10 +10,16 @@ Package,Users,TrendingUp,Shield,Zap,Clock
 
 
 const Main = () => {
-// Initialize dark mode from localStorage
-const [darkMode, setDarkMode] = useState(() => {
-const saved = localStorage.getItem('darkMode');
-return saved ? JSON.parse(saved) : false;
+// Initialize theme state - starts with manager's selected store theme or dark
+const [currentTheme, setCurrentTheme] = useState(() => {
+const saved = localStorage.getItem('storeZenTheme');
+return saved || "dark";
+});
+
+// Track the manager's selected store theme separately
+const [managerStoreTheme, setManagerStoreTheme] = useState(() => {
+const saved = localStorage.getItem('managerStoreTheme');
+return saved || "dark";
 });
 
 // Initialize store name from localStorage
@@ -22,22 +28,30 @@ const saved = localStorage.getItem('storeName');
 return saved || "StoreZen";
 });
 
-// Apply dark mode to document and save to localStorage
+// Apply theme to document and save to localStorage
 useEffect(() => {
-if (darkMode) {
-    document.documentElement.classList.add('dark');
-} else {
-    document.documentElement.classList.remove('dark');
+// Remove all theme classes
+document.documentElement.classList.remove('dark', 'christmas', 'halloween', 'cyberpunk', 'diwali');
+
+// Add current theme class
+if (currentTheme !== 'light') {
+    document.documentElement.classList.add(currentTheme);
 }
-localStorage.setItem('darkMode', JSON.stringify(darkMode));
-}, [darkMode]);
+
+// Don't save the temporary toggle state, keep manager's selection
+// localStorage.setItem('storeZenTheme', currentTheme); // Removed to preserve manager's choice
+}, [currentTheme]);
 
 // Listen for storage changes from other pages
 useEffect(() => {
 const handleStorageChange = (e) => {
-    if (e.key === 'darkMode' && e.newValue !== null) {
-    const isDark = JSON.parse(e.newValue);
-    setDarkMode(isDark);
+    if (e.key === 'storeZenTheme' && e.newValue !== null) {
+    // When manager changes store theme, update current theme
+    setCurrentTheme(e.newValue);
+    }
+    if (e.key === 'managerStoreTheme' && e.newValue !== null) {
+    // Track manager's store theme separately
+    setManagerStoreTheme(e.newValue);
     }
     if (e.key === 'storeName' && e.newValue !== null) {
     setStoreName(e.newValue);
@@ -48,10 +62,95 @@ window.addEventListener('storage', handleStorageChange);
 return () => window.removeEventListener('storage', handleStorageChange);
 }, []);
 
-// Toggle dark mode
-const toggleDarkMode = () => {
-setDarkMode(!darkMode);
+// Toggle between light and manager's selected store theme
+const toggleTheme = () => {
+if (currentTheme === 'light') {
+    // Switch from light to manager's selected theme
+    const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
+    setCurrentTheme(savedManagerTheme);
+    localStorage.setItem('storeZenTheme', savedManagerTheme);
+} else {
+    // Switch to light mode and save it
+    setCurrentTheme('light');
+    // Save current theme as manager's store theme before switching to light
+    localStorage.setItem('managerStoreTheme', currentTheme);
+    localStorage.setItem('storeZenTheme', 'light');
+}
 };
+
+// Get theme-specific colors and styles
+const getThemeStyles = () => {
+switch (currentTheme) {
+    case 'christmas':
+    return {
+        bg: 'bg-gradient-to-br from-red-900 via-green-900 to-red-900',
+        navBg: 'bg-red-900/80 border-green-600/50',
+        text: 'text-green-100',
+        accent: 'text-red-400',
+        buttonPrimary: 'from-red-600 to-green-600 hover:from-red-700 hover:to-green-700',
+        buttonSecondary: 'from-green-600 to-red-600 hover:from-green-700 hover:to-red-700',
+        cardBg: 'bg-red-800/50',
+        particles: ['bg-red-400/20', 'bg-green-400/30', 'bg-yellow-400/25', 'bg-white/20']
+    };
+    case 'halloween':
+    return {
+        bg: 'bg-gradient-to-br from-orange-900 via-black to-purple-900',
+        navBg: 'bg-orange-900/80 border-purple-600/50',
+        text: 'text-orange-100',
+        accent: 'text-orange-400',
+        buttonPrimary: 'from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700',
+        buttonSecondary: 'from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700',
+        cardBg: 'bg-orange-800/50',
+        particles: ['bg-orange-400/20', 'bg-purple-400/30', 'bg-yellow-400/25', 'bg-black/20']
+    };
+    case 'cyberpunk':
+    return {
+        bg: 'bg-gradient-to-br from-gray-900 via-purple-900 to-cyan-900',
+        navBg: 'bg-gray-900/80 border-cyan-600/50',
+        text: 'text-cyan-100',
+        accent: 'text-cyan-400',
+        buttonPrimary: 'from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700',
+        buttonSecondary: 'from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700',
+        cardBg: 'bg-gray-800/50',
+        particles: ['bg-cyan-400/20', 'bg-purple-400/30', 'bg-pink-400/25', 'bg-blue-400/20']
+    };
+    case 'diwali':
+    return {
+        bg: 'bg-gradient-to-br from-yellow-100 via-orange-50 to-red-100',
+        navBg: 'bg-orange-200/80 border-yellow-400/50',
+        text: 'text-orange-900',
+        accent: 'text-red-600',
+        buttonPrimary: 'from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600',
+        buttonSecondary: 'from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600',
+        cardBg: 'bg-yellow-50/50',
+        particles: ['bg-yellow-400/20', 'bg-orange-400/30', 'bg-red-400/25', 'bg-pink-400/20']
+    };
+    case 'dark':
+    return {
+        bg: 'bg-gray-900',
+        navBg: 'bg-gray-900/80 border-gray-700/50',
+        text: 'text-white',
+        accent: 'text-blue-400',
+        buttonPrimary: 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800',
+        buttonSecondary: 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800',
+        cardBg: 'bg-gray-800/50',
+        particles: ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-indigo-400/25']
+    };
+    default: // light
+    return {
+        bg: 'bg-white',
+        navBg: 'bg-white/80 border-gray-200/50',
+        text: 'text-gray-900',
+        accent: 'text-blue-600',
+        buttonPrimary: 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800',
+        buttonSecondary: 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800',
+        cardBg: 'bg-gray-50/50',
+        particles: ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-yellow-400/20']
+    };
+}
+};
+
+const themeStyles = getThemeStyles();
 
 // Smooth scroll to sections
 const scrollToSection = (sectionId) => {
@@ -135,15 +234,71 @@ const managerFeatures = [
 ];
 
 return (
-<div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-white'}`}>
-    {/* Navigation Bar */}
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${darkMode ? 'bg-gray-900/95 border-gray-700' : 'bg-white/95 border-gray-200'} backdrop-blur-md border-b`}>
+<div className={`min-h-screen transition-all duration-500 relative overflow-hidden ${themeStyles.bg}`}>
+    {/* Animated Background Elements for Seasonal Themes */}
+    {currentTheme === 'christmas' && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>❄️</div>
+            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🎄</div>
+            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🎅</div>
+            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>⭐</div>
+            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🎁</div>
+            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>❄️</div>
+        </div>
+    )}
+    
+    {currentTheme === 'halloween' && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🎃</div>
+            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>👻</div>
+            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🦇</div>
+            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🕷️</div>
+            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🧙</div>
+            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>🌙</div>
+        </div>
+    )}
+    
+    {currentTheme === 'cyberpunk' && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🌟</div>
+            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>⚡</div>
+            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🔮</div>
+            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>💎</div>
+            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🌌</div>
+            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>✨</div>
+        </div>
+    )}
+    
+    {currentTheme === 'diwali' && (
+        <div className="fixed inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🪔</div>
+            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🎆</div>
+            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>✨</div>
+            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🌟</div>
+            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🎇</div>
+            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>🪔</div>
+        </div>
+    )}
+    
+    {(currentTheme === 'light' || currentTheme === 'dark') && (
+        /* Regular Floating Particles Background */
+        <div className="fixed inset-0 pointer-events-none">
+            <div className={`absolute top-10 left-10 w-2 h-2 ${themeStyles.particles[0]} rounded-full animate-bounce`} style={{animationDelay: '0s', animationDuration: '3s'}}></div>
+            <div className={`absolute top-20 right-20 w-1 h-1 ${themeStyles.particles[1]} rounded-full animate-bounce`} style={{animationDelay: '1s', animationDuration: '4s'}}></div>
+            <div className={`absolute bottom-32 left-16 w-1.5 h-1.5 ${themeStyles.particles[2]} rounded-full animate-bounce`} style={{animationDelay: '2s', animationDuration: '5s'}}></div>
+            <div className={`absolute top-1/3 right-1/4 w-1 h-1 ${themeStyles.particles[3]} rounded-full animate-bounce`} style={{animationDelay: '0.5s', animationDuration: '3.5s'}}></div>
+            <div className={`absolute bottom-1/4 right-10 w-2 h-2 ${themeStyles.particles[0]} rounded-full animate-bounce`} style={{animationDelay: '1.5s', animationDuration: '4.5s'}}></div>
+            <div className={`absolute top-1/2 left-1/3 w-1 h-1 ${themeStyles.particles[3]} rounded-full animate-bounce`} style={{animationDelay: '2.5s', animationDuration: '3.8s'}}></div>
+        </div>
+    )}
+    {/* Navigation Bar with Glassmorphism */}
+    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${themeStyles.navBg} backdrop-blur-xl border-b shadow-lg shadow-blue-500/5`}>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
         {/* Logo */}
         <div className="flex items-center space-x-3">
-            <Store className={`h-8 w-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-            <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <Store className={`h-8 w-8 ${themeStyles.accent}`} />
+            <span className={`text-2xl font-bold ${themeStyles.text}`}>
             StoreZen
             </span>
         </div>
@@ -152,29 +307,46 @@ return (
         <div className="hidden md:flex items-center space-x-8">
             <button
             onClick={() => scrollToSection('home')}
-            className={`font-medium transition-colors duration-200 ${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            className={`font-medium transition-colors duration-200 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} hover:${themeStyles.text}`}
             >
             Home
             </button>
             <button
             onClick={() => scrollToSection('features')}
-            className={`font-medium transition-colors duration-200 ${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'}`}
+            className={`font-medium transition-colors duration-200 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} hover:${themeStyles.text}`}
             >
             Features
             </button>
         </div>
 
-        {/* Dark Mode Toggle */}
+        {/* Theme Toggle */}
         <div className="flex items-center">
             <button
-            onClick={toggleDarkMode}
-            className={`relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${darkMode ? 'bg-blue-600 focus:ring-offset-gray-900' : 'bg-gray-300 focus:ring-offset-white'}`}
+            onClick={toggleTheme}
+            className={`relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                currentTheme === 'light' ? 'bg-gray-300' : 
+                currentTheme === 'christmas' ? 'bg-red-600' :
+                currentTheme === 'halloween' ? 'bg-orange-600' :
+                currentTheme === 'cyberpunk' ? 'bg-cyan-600' :
+                currentTheme === 'diwali' ? 'bg-yellow-600' :
+                'bg-blue-600'
+            } focus:ring-offset-gray-900`}
             >
-            <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full transition-all duration-300 flex items-center justify-center ${darkMode ? 'translate-x-7 bg-gray-900' : 'translate-x-0 bg-white'}`}>
-                {darkMode ? (
-                <Moon className="h-4 w-4 text-blue-400" />
-                ) : (
+            <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full transition-all duration-300 flex items-center justify-center ${currentTheme === 'light' ? 'translate-x-0 bg-white' : 'translate-x-7 bg-gray-900'}`}>
+                {currentTheme === 'light' ? (
                 <Sun className="h-4 w-4 text-yellow-500" />
+                ) : currentTheme === 'dark' ? (
+                <Moon className="h-4 w-4 text-blue-400" />
+                ) : currentTheme === 'christmas' ? (
+                <span className="text-xs">🎄</span>
+                ) : currentTheme === 'halloween' ? (
+                <span className="text-xs">🎃</span>
+                ) : currentTheme === 'cyberpunk' ? (
+                <span className="text-xs">🌟</span>
+                ) : currentTheme === 'diwali' ? (
+                <span className="text-xs">🪔</span>
+                ) : (
+                <Moon className="h-4 w-4 text-blue-400" />
                 )}
             </div>
             </button>
@@ -184,66 +356,76 @@ return (
     </nav>
 
     {/* Hero Section */}
-    <section id="home" className="pt-24 pb-20">
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="home" className="pt-24 pb-20 relative">
+    
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-4xl mx-auto">
-        <h1 className={`text-5xl md:text-6xl font-bold mb-6 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-            Welcome to <span className="text-blue-600">{storeName}</span>
+        <h1 className={`text-5xl md:text-6xl font-bold mb-6 ${themeStyles.text}`}>
+            Welcome to <span className={`${themeStyles.accent}`}>{storeName}</span>
+            {currentTheme === 'christmas' && <span className="ml-2">🎄</span>}
+            {currentTheme === 'halloween' && <span className="ml-2">🎃</span>}
+            {currentTheme === 'cyberpunk' && <span className="ml-2">🌟</span>}
+            {currentTheme === 'diwali' && <span className="ml-2">🪔</span>}
         </h1>
         
-        <p className={`text-xl md:text-2xl mb-8 leading-relaxed ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`text-xl md:text-2xl mb-8 leading-relaxed ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
             A modern retail experience built for smarter shopping and seamless store management.
         </p>
         
-        {/* Action Buttons */}
+        {/* Action Buttons with Theme-Aware Ripple Effect */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
             <Link to="/customer">
             <Button
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center"
+                className={`bg-gradient-to-r ${themeStyles.buttonPrimary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
             >
-                <ShoppingBag className="mr-3 h-6 w-6" />
-                Customer Portal
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
+                <ShoppingBag className="mr-3 h-6 w-6 relative z-10" />
+                <span className="relative z-10">Customer Portal</span>
             </Button>
             </Link>
 
             <Link to="/manager">
             <Button
                 size="lg"
-                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center"
+                className={`bg-gradient-to-r ${themeStyles.buttonSecondary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
             >
-                <Settings className="mr-3 h-6 w-6" />
-                Manager Portal
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
+                <Settings className="mr-3 h-6 w-6 relative z-10" />
+                <span className="relative z-10">Manager Portal</span>
             </Button>
             </Link>
         </div>
 
-        {/* Key Benefits */}
+        {/* Key Benefits with 3D Tilt Effect */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-            <div className={`text-center p-6 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-            <Shield className="h-12 w-12 text-green-500 mx-auto mb-4" />
-            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:-rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-green-500/10`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <Shield className="h-12 w-12 text-green-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+            <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
                 Secure & Reliable
             </h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 Enterprise-grade security with 99.9% uptime guarantee
             </p>
             </div>
-            <div className={`text-center p-6 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-            <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-yellow-500/10`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+            <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
                 Lightning Fast
             </h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 Optimized performance for seamless user experience
             </p>
             </div>
-            <div className={`text-center p-6 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-            <Clock className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-            <h3 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-blue-500/10`}>
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <Clock className="h-12 w-12 text-blue-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+            <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
                 24/7 Support
             </h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 Round-the-clock assistance and AI-powered help
             </p>
             </div>
@@ -253,13 +435,14 @@ return (
     </section>
 
     {/* Features Section */}
-    <section id="features" className={`py-20 ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section id="features" className={`py-20 ${themeStyles.cardBg} relative`}>
+    
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center mb-16 relative">
-        <h2 className={`text-4xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+        <h2 className={`text-4xl font-bold mb-4 ${themeStyles.text}`}>
             Powerful Features
         </h2>
-        <p className={`text-xl ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`text-xl ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
             Discover what makes StoreZen the perfect solution for modern retail
         </p>
         <div className="absolute -top-20 right-0 hidden md:block">
@@ -276,17 +459,15 @@ return (
             }}
             />
         </div>
-
-        
         </div>
 
         {/* Customer Features */}
         <div className="mb-16">
         <div className="text-center mb-12">
-            <h3 className={`text-3xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className={`text-3xl font-bold mb-4 ${themeStyles.text}`}>
             Customer Experience
             </h3>
-            <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-lg ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
             Enhanced shopping experience with AI-powered features
             </p>
         </div>
@@ -294,17 +475,21 @@ return (
             {customerFeatures.map((feature, index) => (
             <div
                 key={index}
-                className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 ${darkMode ? 'bg-gray-700' : 'bg-white'}`}
+                className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent hover:border-blue-400/30 ${currentTheme === 'light' ? 'bg-white/50 hover:bg-gray-50/80' : 'bg-gray-700/50 hover:bg-gray-600/50'} backdrop-blur-sm`}
+                style={{
+                transform: `perspective(1000px) rotateX(${Math.sin(index * 0.5) * 2}deg) rotateY(${Math.cos(index * 0.3) * 2}deg)`,
+                animationDelay: `${index * 0.1}s`
+                }}
             >
-                <feature.icon className="h-10 w-10 text-blue-600 mb-4" />
-                <h4 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                <feature.icon className="h-10 w-10 text-blue-600 mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10" />
+                <h4 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
                 {feature.title}
                 </h4>
-                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 {feature.description}
                 </p>
-
-                
             </div>
             ))}
         </div>
@@ -313,10 +498,10 @@ return (
         {/* Manager Features */}
         <div>
         <div className="text-center mb-12">
-            <h3 className={`text-3xl font-bold mb-4 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <h3 className={`text-3xl font-bold mb-4 ${themeStyles.text}`}>
             Manager Dashboard
             </h3>
-            <p className={`text-lg ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-lg ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
             Complete business management and analytics tools
             </p>
         </div>
@@ -324,13 +509,19 @@ return (
             {managerFeatures.map((feature, index) => (
             <div
                 key={index}
-                className={`p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 ${darkMode ? 'bg-gray-700' : 'bg-white'}`}
+                className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent hover:border-purple-400/30 ${currentTheme === 'light' ? 'bg-white/50 hover:bg-gray-50/80' : 'bg-gray-700/50 hover:bg-gray-600/50'} backdrop-blur-sm`}
+                style={{
+                transform: `perspective(1000px) rotateX(${Math.sin((index + 3) * 0.5) * 2}deg) rotateY(${Math.cos((index + 3) * 0.3) * 2}deg)`,
+                animationDelay: `${(index + customerFeatures.length) * 0.1}s`
+                }}
             >
-                <feature.icon className="h-10 w-10 text-purple-600 mb-4" />
-                <h4 className={`text-lg font-semibold mb-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
+                <feature.icon className="h-10 w-10 text-purple-600 mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10" />
+                <h4 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
                 {feature.title}
                 </h4>
-                <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 {feature.description}
                 </p>
             </div>
@@ -341,16 +532,20 @@ return (
     </section>
 
     {/* Footer */}
-    <footer className={`py-12 ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'} border-t`}>
+    <footer className={`py-12 ${themeStyles.bg} border-t ${currentTheme === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center">
         <div className="flex items-center justify-center space-x-3 mb-4">
-            <Store className={`h-8 w-8 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-            <span className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <Store className={`h-8 w-8 ${themeStyles.accent}`} />
+            <span className={`text-2xl font-bold ${themeStyles.text}`}>
             StoreZen
             </span>
+            {currentTheme === 'christmas' && <span className="text-xl">🎅</span>}
+            {currentTheme === 'halloween' && <span className="text-xl">👻</span>}
+            {currentTheme === 'cyberpunk' && <span className="text-xl">🌟</span>}
+            {currentTheme === 'diwali' && <span className="text-xl">🪔</span>}
         </div>
-        <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-400')}`}>
             © 2025 StoreZen. All rights reserved. Transforming retail experiences worldwide.
         </p>
         </div>
