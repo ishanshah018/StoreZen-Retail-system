@@ -3,19 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import {
-User,
-ShoppingCart,
-MessageCircle,
-Receipt,
-FileText,
-Ticket,
-Coins,
-BarChart,
-Star,
-Heart,
-Send,
-Store,
-ArrowLeft,
+User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart,Send,Store,ArrowLeft,
 } from "lucide-react";
 
 const Customer = () => {
@@ -344,9 +332,9 @@ return (
         {categoryFeatures.map((feature, index) => (
             <Card
             key={feature.title}
-            className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-pointer border rounded-lg relative overflow-visible ${
+            className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-500 cursor-pointer border rounded-lg relative overflow-visible ${
                 feature.special
-                ? `backdrop-blur-xl border-2 ${themeStyles.cardBg} border-gradient-to-r from-blue-400 to-purple-400 ${themeStyles.hoverBg} hover:shadow-blue-500/30 ring-2 ring-blue-400/50 shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40 hover:ring-blue-400/70`
+                ? `backdrop-blur-xl border-transparent ${themeStyles.cardBg} ${themeStyles.hoverBg} hover:shadow-blue-500/30 shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40`
                 : `${themeStyles.cardBg} border-gray-200/20 ${themeStyles.hoverBg} hover:shadow-blue-500/15`
             } hover:shadow-xl`}
             style={{
@@ -355,7 +343,26 @@ return (
                 : undefined,
                 background: feature.special 
                 ? `linear-gradient(135deg, ${currentTheme === 'light' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(31, 41, 55, 0.6)'} 0%, ${currentTheme === 'light' ? 'rgba(249, 250, 251, 0.4)' : 'rgba(55, 65, 81, 0.4)'} 100%)`
+                : undefined,
+                '--hover-border': feature.special 
+                ? 'linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6)'
                 : undefined
+            }}
+            onMouseEnter={(e) => {
+                if (feature.special) {
+                    e.currentTarget.style.border = '2px solid transparent';
+                    e.currentTarget.style.backgroundImage = `linear-gradient(135deg, ${currentTheme === 'light' ? 'rgba(255, 255, 255, 0.8)' : 'rgba(31, 41, 55, 0.8)'} 0%, ${currentTheme === 'light' ? 'rgba(249, 250, 251, 0.6)' : 'rgba(55, 65, 81, 0.6)'} 100%), linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6)`;
+                    e.currentTarget.style.backgroundOrigin = 'border-box';
+                    e.currentTarget.style.backgroundClip = 'content-box, border-box';
+                }
+            }}
+            onMouseLeave={(e) => {
+                if (feature.special) {
+                    e.currentTarget.style.border = '1px solid transparent';
+                    e.currentTarget.style.backgroundImage = `linear-gradient(135deg, ${currentTheme === 'light' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(31, 41, 55, 0.6)'} 0%, ${currentTheme === 'light' ? 'rgba(249, 250, 251, 0.4)' : 'rgba(55, 65, 81, 0.4)'} 100%)`;
+                    e.currentTarget.style.backgroundOrigin = 'padding-box';
+                    e.currentTarget.style.backgroundClip = 'padding-box';
+                }
             }}
             >
                 {/* AI Badge */}
@@ -366,7 +373,7 @@ return (
                 </div>
                 )}
                 
-                {/* Full Card Diamond Effects */}
+                {/* Full Card Diamond Effects for AI Special Card */}
                 {feature.special && (
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
                     {/* Large diamonds */}
@@ -390,6 +397,29 @@ return (
                     {/* Floating sparkles */}
                     <div className="absolute top-3 right-16 w-1 h-1 bg-yellow-200/50 transform rotate-45 animate-pulse" style={{animationDelay: '1.2s'}}></div>
                     <div className="absolute bottom-3 left-16 w-1 h-1 bg-pink-200/55 transform rotate-45 animate-bounce" style={{animationDelay: '0.4s'}}></div>
+                </div>
+                )}
+
+                {/* Animated Bot Effects for Chatbot Feature */}
+                {feature.title === "Chatbot Feature" && (
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
+                    {/* Bot emojis floating around */}
+                    <div className="absolute top-6 left-4 text-lg animate-bounce" style={{animationDelay: '0s', animationDuration: '2s'}}>🤖</div>
+                    <div className="absolute top-12 right-6 text-sm animate-bounce" style={{animationDelay: '0.3s', animationDuration: '2.5s'}}>🤖</div>
+                    <div className="absolute bottom-8 left-8 text-base animate-bounce" style={{animationDelay: '0.6s', animationDuration: '2.2s'}}>🤖</div>
+                    <div className="absolute bottom-12 right-4 text-xs animate-bounce" style={{animationDelay: '0.9s', animationDuration: '2.8s'}}>🤖</div>
+                    <div className="absolute top-1/2 right-8 text-sm animate-bounce" style={{animationDelay: '1.2s', animationDuration: '2.3s'}}>🤖</div>
+                    <div className="absolute top-16 left-12 text-xs animate-bounce" style={{animationDelay: '1.5s', animationDuration: '2.6s'}}>🤖</div>
+                    
+                    {/* Chat bubble effects */}
+                    <div className="absolute top-8 left-16 text-xs animate-pulse" style={{animationDelay: '0.2s'}}>💬</div>
+                    <div className="absolute bottom-6 right-12 text-sm animate-pulse" style={{animationDelay: '0.8s'}}>💬</div>
+                    <div className="absolute top-20 right-16 text-xs animate-pulse" style={{animationDelay: '1.4s'}}>💬</div>
+                    
+                    {/* Small circuit-like dots */}
+                    <div className="absolute top-10 left-6 w-1.5 h-1.5 bg-indigo-400/60 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                    <div className="absolute bottom-10 right-8 w-1 h-1 bg-purple-400/70 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+                    <div className="absolute top-14 right-10 w-1.5 h-1.5 bg-blue-400/50 rounded-full animate-pulse" style={{animationDelay: '1.6s'}}></div>
                 </div>
                 )}
             

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { 
 ShoppingBag, Settings, Sun, Moon, Store,User,MessageCircle,Star,Receipt,FileText,BarChart,
-Package,Users,TrendingUp,Shield,Zap,Clock
+Package,Users,TrendingUp,Shield,Zap,Bot
 } from "lucide-react";
 
 
@@ -17,6 +17,7 @@ return saved || "dark";
 });
 
 // Track the manager's selected store theme separately
+// eslint-disable-next-line no-unused-vars
 const [managerStoreTheme, setManagerStoreTheme] = useState(() => {
 const saved = localStorage.getItem('managerStoreTheme');
 return saved || "dark";
@@ -421,9 +422,9 @@ return (
             </div>
             <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-blue-500/10`}>
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <Clock className="h-12 w-12 text-blue-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+            <Bot className="h-12 w-12 text-blue-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
             <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
-                24/7 Support
+                AI Integrated System
             </h3>
             <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} relative z-10`}>
                 Round-the-clock assistance and AI-powered help
