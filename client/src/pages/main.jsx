@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji } from "../components/theme";
 import { 
 ShoppingBag, Settings, Sun, Moon, Store,User,MessageCircle,Star,Receipt,FileText,BarChart,
 Package,Users,TrendingUp,Shield,Zap,Bot
@@ -10,11 +11,8 @@ Package,Users,TrendingUp,Shield,Zap,Bot
 
 
 const Main = () => {
-// Initialize theme state - starts with manager's selected store theme or dark
-const [currentTheme, setCurrentTheme] = useState(() => {
-const saved = localStorage.getItem('storeZenTheme');
-return saved || "dark";
-});
+// Get theme from context
+const { currentTheme, setCurrentTheme } = useTheme();
 
 // Track the manager's selected store theme separately
 // eslint-disable-next-line no-unused-vars
@@ -29,27 +27,9 @@ const saved = localStorage.getItem('storeName');
 return saved || "StoreZen";
 });
 
-// Apply theme to document and save to localStorage
-useEffect(() => {
-// Remove all theme classes
-document.documentElement.classList.remove('dark', 'christmas', 'halloween', 'cyberpunk', 'diwali');
-
-// Add current theme class
-if (currentTheme !== 'light') {
-    document.documentElement.classList.add(currentTheme);
-}
-
-// Don't save the temporary toggle state, keep manager's selection
-// localStorage.setItem('storeZenTheme', currentTheme); // Removed to preserve manager's choice
-}, [currentTheme]);
-
 // Listen for storage changes from other pages
 useEffect(() => {
 const handleStorageChange = (e) => {
-    if (e.key === 'storeZenTheme' && e.newValue !== null) {
-    // When manager changes store theme, update current theme
-    setCurrentTheme(e.newValue);
-    }
     if (e.key === 'managerStoreTheme' && e.newValue !== null) {
     // Track manager's store theme separately
     setManagerStoreTheme(e.newValue);
@@ -79,79 +59,29 @@ if (currentTheme === 'light') {
 }
 };
 
-// Get theme-specific colors and styles
-const getThemeStyles = () => {
-switch (currentTheme) {
-    case 'christmas':
-    return {
-        bg: 'bg-gradient-to-br from-red-900 via-green-900 to-red-900',
-        navBg: 'bg-red-900/80 border-green-600/50',
-        text: 'text-green-100',
-        accent: 'text-red-400',
-        buttonPrimary: 'from-red-600 to-green-600 hover:from-red-700 hover:to-green-700',
-        buttonSecondary: 'from-green-600 to-red-600 hover:from-green-700 hover:to-red-700',
-        cardBg: 'bg-red-800/50',
-        particles: ['bg-red-400/20', 'bg-green-400/30', 'bg-yellow-400/25', 'bg-white/20']
-    };
-    case 'halloween':
-    return {
-        bg: 'bg-gradient-to-br from-orange-900 via-black to-purple-900',
-        navBg: 'bg-orange-900/80 border-purple-600/50',
-        text: 'text-orange-100',
-        accent: 'text-orange-400',
-        buttonPrimary: 'from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700',
-        buttonSecondary: 'from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700',
-        cardBg: 'bg-orange-800/50',
-        particles: ['bg-orange-400/20', 'bg-purple-400/30', 'bg-yellow-400/25', 'bg-black/20']
-    };
-    case 'cyberpunk':
-    return {
-        bg: 'bg-gradient-to-br from-gray-900 via-purple-900 to-cyan-900',
-        navBg: 'bg-gray-900/80 border-cyan-600/50',
-        text: 'text-cyan-100',
-        accent: 'text-cyan-400',
-        buttonPrimary: 'from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700',
-        buttonSecondary: 'from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700',
-        cardBg: 'bg-gray-800/50',
-        particles: ['bg-cyan-400/20', 'bg-purple-400/30', 'bg-pink-400/25', 'bg-blue-400/20']
-    };
-    case 'diwali':
-    return {
-        bg: 'bg-gradient-to-br from-yellow-100 via-orange-50 to-red-100',
-        navBg: 'bg-orange-200/80 border-yellow-400/50',
-        text: 'text-orange-900',
-        accent: 'text-red-600',
-        buttonPrimary: 'from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600',
-        buttonSecondary: 'from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600',
-        cardBg: 'bg-yellow-50/50',
-        particles: ['bg-yellow-400/20', 'bg-orange-400/30', 'bg-red-400/25', 'bg-pink-400/20']
-    };
-    case 'dark':
-    return {
-        bg: 'bg-gray-900',
-        navBg: 'bg-gray-900/80 border-gray-700/50',
-        text: 'text-white',
-        accent: 'text-blue-400',
-        buttonPrimary: 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800',
-        buttonSecondary: 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800',
-        cardBg: 'bg-gray-800/50',
-        particles: ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-indigo-400/25']
-    };
-    default: // light
-    return {
-        bg: 'bg-white',
-        navBg: 'bg-white/80 border-gray-200/50',
-        text: 'text-gray-900',
-        accent: 'text-blue-600',
-        buttonPrimary: 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800',
-        buttonSecondary: 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800',
-        cardBg: 'bg-gray-50/50',
-        particles: ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-yellow-400/20']
-    };
-}
+// Get theme styles and extend with additional properties for landing page
+const baseThemeStyles = getThemeStyles(currentTheme);
+const themeStyles = {
+...baseThemeStyles,
+buttonPrimary: currentTheme === 'christmas' ? 'from-red-600 to-green-600 hover:from-red-700 hover:to-green-700' :
+               currentTheme === 'halloween' ? 'from-orange-600 to-purple-600 hover:from-orange-700 hover:to-purple-700' :
+               currentTheme === 'cyberpunk' ? 'from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700' :
+               currentTheme === 'diwali' ? 'from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600' :
+               currentTheme === 'dark' ? 'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800' :
+               'from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800',
+buttonSecondary: currentTheme === 'christmas' ? 'from-green-600 to-red-600 hover:from-green-700 hover:to-red-700' :
+                currentTheme === 'halloween' ? 'from-purple-600 to-orange-600 hover:from-purple-700 hover:to-orange-700' :
+                currentTheme === 'cyberpunk' ? 'from-purple-600 to-cyan-600 hover:from-purple-700 hover:to-cyan-700' :
+                currentTheme === 'diwali' ? 'from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600' :
+                currentTheme === 'dark' ? 'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800' :
+                'from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800',
+particles: currentTheme === 'christmas' ? ['bg-red-400/20', 'bg-green-400/30', 'bg-yellow-400/25', 'bg-white/20'] :
+          currentTheme === 'halloween' ? ['bg-orange-400/20', 'bg-purple-400/30', 'bg-yellow-400/25', 'bg-black/20'] :
+          currentTheme === 'cyberpunk' ? ['bg-cyan-400/20', 'bg-purple-400/30', 'bg-pink-400/25', 'bg-blue-400/20'] :
+          currentTheme === 'diwali' ? ['bg-yellow-400/20', 'bg-orange-400/30', 'bg-red-400/25', 'bg-pink-400/20'] :
+          currentTheme === 'dark' ? ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-indigo-400/25'] :
+          ['bg-blue-400/20', 'bg-purple-400/30', 'bg-green-400/25', 'bg-yellow-400/20']
 };
-
-const themeStyles = getThemeStyles();
 
 // Smooth scroll to sections
 const scrollToSection = (sectionId) => {
@@ -236,50 +166,8 @@ const managerFeatures = [
 
 return (
 <div className={`min-h-screen transition-all duration-500 relative overflow-hidden ${themeStyles.bg}`}>
-    {/* Animated Background Elements for Seasonal Themes */}
-    {currentTheme === 'christmas' && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>❄️</div>
-            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🎄</div>
-            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🎅</div>
-            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>⭐</div>
-            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🎁</div>
-            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>❄️</div>
-        </div>
-    )}
-    
-    {currentTheme === 'halloween' && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🎃</div>
-            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>👻</div>
-            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🦇</div>
-            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🕷️</div>
-            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🧙</div>
-            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>🌙</div>
-        </div>
-    )}
-    
-    {currentTheme === 'cyberpunk' && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🌟</div>
-            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>⚡</div>
-            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>🔮</div>
-            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>💎</div>
-            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🌌</div>
-            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>✨</div>
-        </div>
-    )}
-    
-    {currentTheme === 'diwali' && (
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-10 left-10 text-2xl animate-bounce" style={{animationDelay: '0s', animationDuration: '3s'}}>🪔</div>
-            <div className="absolute top-20 right-20 text-xl animate-bounce" style={{animationDelay: '1s', animationDuration: '4s'}}>🎆</div>
-            <div className="absolute bottom-32 left-16 text-lg animate-bounce" style={{animationDelay: '2s', animationDuration: '5s'}}>✨</div>
-            <div className="absolute top-1/3 right-1/4 text-sm animate-bounce" style={{animationDelay: '0.5s', animationDuration: '3.5s'}}>🌟</div>
-            <div className="absolute bottom-1/4 right-10 text-xl animate-bounce" style={{animationDelay: '1.5s', animationDuration: '4.5s'}}>🎇</div>
-            <div className="absolute top-1/2 left-1/3 text-sm animate-bounce" style={{animationDelay: '2.5s', animationDuration: '3.8s'}}>🪔</div>
-        </div>
-    )}
+    {/* Animated Background Elements */}
+    <ThemeBackground currentTheme={currentTheme} />
     
     {(currentTheme === 'light' || currentTheme === 'dark') && (
         /* Regular Floating Particles Background */
@@ -363,10 +251,7 @@ return (
         <div className="text-center max-w-4xl mx-auto">
         <h1 className={`text-5xl md:text-6xl font-bold mb-6 ${themeStyles.text}`}>
             Welcome to <span className={`${themeStyles.accent}`}>{storeName}</span>
-            {currentTheme === 'christmas' && <span className="ml-2">🎄</span>}
-            {currentTheme === 'halloween' && <span className="ml-2">🎃</span>}
-            {currentTheme === 'cyberpunk' && <span className="ml-2">🌟</span>}
-            {currentTheme === 'diwali' && <span className="ml-2">🪔</span>}
+            {getThemeEmoji(currentTheme) && <span className="ml-2">{getThemeEmoji(currentTheme)}</span>}
         </h1>
         
         <p className={`text-xl md:text-2xl mb-8 leading-relaxed ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
@@ -375,14 +260,14 @@ return (
         
         {/* Action Buttons with Theme-Aware Ripple Effect */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-            <Link to="/customer">
+            <Link to="/signup">
             <Button
                 size="lg"
                 className={`bg-gradient-to-r ${themeStyles.buttonPrimary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
                 <ShoppingBag className="mr-3 h-6 w-6 relative z-10" />
-                <span className="relative z-10">Customer Portal</span>
+                <span className="relative z-10">I am Customer</span>
             </Button>
             </Link>
 
