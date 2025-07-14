@@ -89,11 +89,11 @@ function Signup() {
                             <Store className={`h-12 w-12 ${themeStyles.accent}`} />
                         </div>
                         <h2 className={`text-3xl font-bold ${themeStyles.text}`}>
-                            Join StoreZen
+                            SignUp
                             {getThemeEmoji(currentTheme) && <span className="ml-2">{getThemeEmoji(currentTheme)}</span>}
                         </h2>
                         <p className={`mt-2 ${themeStyles.text} opacity-80`}>
-                            Create your customer account
+                            Create your new account
                         </p>
                     </div>
 

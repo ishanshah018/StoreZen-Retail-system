@@ -13,6 +13,7 @@ function Login() {
 
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [loginSuccess, setLoginSuccess] = useState(false);
 
     // Get theme from context
     const { currentTheme } = useTheme();
@@ -32,6 +33,7 @@ function Login() {
     const handleLogin = async (e) => {
         e.preventDefault();
         setIsLoading(true);
+        setLoginSuccess(false);
         const { email, password } = loginInfo;
         if (!email || !password) {
             setIsLoading(false);
@@ -49,13 +51,21 @@ function Login() {
             const result = await response.json();
             const { success, message, jwtToken, name, error } = result;
             if (success) {
-                handleSuccess(message);
+                // Show success animation
+                setLoginSuccess(true);
+                
+                // Store user data
                 localStorage.setItem('token', jwtToken);
                 localStorage.setItem('loggedInUser', name);
                 localStorage.setItem('customerName', name);
+                
+                // Show success message
+                handleSuccess(message);
+                
+                // Wait for success animation to complete, then redirect
                 setTimeout(() => {
                     navigate('/customer')
-                }, 1000)
+                }, 2000) // Increased time to show success animation
             } else if (error) {
                 const details = error?.details[0].message;
                 handleError(details);
@@ -64,8 +74,8 @@ function Login() {
             }
         } catch (err) {
             handleError(err.message || 'Login failed');
-        } finally {
             setIsLoading(false);
+            setLoginSuccess(false);
         }
     }
 
@@ -162,13 +172,76 @@ function Login() {
                         <div>
                             <button
                                 type="submit"
-                                disabled={isLoading}
-                                className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-white font-medium rounded-lg ${themeStyles.button} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none`}
+                                disabled={isLoading || loginSuccess}
+                                className={`group relative w-full flex justify-center py-3 px-4 border border-transparent text-white font-medium rounded-lg ${
+                                    loginSuccess 
+                                        ? 'bg-gradient-to-r from-green-500 to-emerald-500' 
+                                        : themeStyles.button
+                                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-500 transform hover:scale-105 shadow-lg hover:shadow-xl disabled:cursor-not-allowed overflow-hidden`}
                             >
-                                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                                    <LogIn className="h-5 w-5 text-white group-hover:text-blue-100 transition-colors" />
-                                </span>
-                                {isLoading ? 'Signing In...' : 'Sign In'}
+                                {/* Loading Animation */}
+                                {isLoading && !loginSuccess && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+                                        {/* Animated Background Gradient */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 animate-pulse"></div>
+                                        
+                                        {/* Loading Content */}
+                                        <div className="relative flex items-center space-x-3 z-10">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-white/30 border-t-white"></div>
+                                            
+                                            {/* Loading Dots */}
+                                            <div className="flex space-x-1">
+                                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+                                                <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+                                            </div>
+                                            
+                                            <span className="text-white font-medium">Signing In...</span>
+                                        </div>
+                                        
+                                        {/* Shimmer Effect */}
+                                        <div className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                                    </div>
+                                )}
+                                
+                                {/* Success Animation */}
+                                {loginSuccess && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                                        {/* Success Content */}
+                                        <div className="relative flex items-center space-x-3 z-10">
+                                            {/* Success Checkmark */}
+                                            <div className="relative">
+                                                <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center animate-pulse">
+                                                    <svg className="w-4 h-4 text-green-500 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </div>
+                                                {/* Success Ring Animation */}
+                                                <div className="absolute inset-0 w-6 h-6 border-2 border-white rounded-full animate-ping opacity-75"></div>
+                                            </div>
+                                            
+                                            <span className="text-white font-medium animate-pulse">Login Successful!</span>
+                                            
+                                            {/* Success Particles */}
+                                            <div className="flex space-x-1">
+                                                <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+                                                <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{animationDelay: '100ms'}}></div>
+                                                <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{animationDelay: '200ms'}}></div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Success Shimmer */}
+                                        <div className="absolute inset-0 -skew-x-12 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                                    </div>
+                                )}
+                                
+                                {/* Default Button Content */}
+                                <div className={`flex items-center justify-center transition-opacity duration-300 ${(isLoading || loginSuccess) ? 'opacity-0' : 'opacity-100'}`}>
+                                    <span className="absolute left-0 inset-y-0 flex items-center pl-3">
+                                        <LogIn className="h-5 w-5 text-white group-hover:text-blue-100 transition-colors" />
+                                    </span>
+                                    <span className="ml-6">Sign In</span>
+                                </div>
                             </button>
                         </div>
 
