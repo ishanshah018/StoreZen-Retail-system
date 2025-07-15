@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ToastContainer } from 'react-toastify';
 import { handleError, handleSuccess } from '../lib/utils';
-import { Store, ArrowLeft, Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
+import { Store, ArrowLeft, Mail, Lock, LogIn, Eye, EyeOff} from 'lucide-react';
 import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji, getToastTheme } from '../components/theme';
 
 function Login() {
@@ -14,6 +14,11 @@ function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [loginSuccess, setLoginSuccess] = useState(false);
+    const [particles, setParticles] = useState([]);
+    const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+    const [typingText, setTypingText] = useState('');
+    const [showConfetti, setShowConfetti] = useState(false);
+    const containerRef = useRef(null);
 
     // Get theme from context
     const { currentTheme } = useTheme();
@@ -23,20 +28,104 @@ function Login() {
     // Get theme styles
     const themeStyles = getThemeStyles(currentTheme);
 
+    // Typing animation for welcome text
+    const welcomeText = "Welcome Back !";
+    useEffect(() => {
+        let index = 0;
+        const timer = setInterval(() => {
+            if (index < welcomeText.length) {
+                setTypingText(welcomeText.slice(0, index + 1));
+                index++;
+            } else {
+                clearInterval(timer);
+            }
+        }, 100);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Initialize particles for interactive background
+    useEffect(() => {
+        const initParticles = () => {
+            const newParticles = [];
+            for (let i = 0; i < 50; i++) {
+                newParticles.push({
+                    id: i,
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    size: Math.random() * 3 + 1,
+                    opacity: Math.random() * 0.5 + 0.1,
+                });
+            }
+            setParticles(newParticles);
+        };
+        initParticles();
+    }, []);
+
+    // Animate particles
+    useEffect(() => {
+        const animateParticles = () => {
+            setParticles(prev => prev.map(particle => {
+                let newX = particle.x + particle.vx;
+                let newY = particle.y + particle.vy;
+                
+                if (newX < 0 || newX > window.innerWidth) particle.vx *= -1;
+                if (newY < 0 || newY > window.innerHeight) particle.vy *= -1;
+                
+                return {
+                    ...particle,
+                    x: Math.max(0, Math.min(window.innerWidth, newX)),
+                    y: Math.max(0, Math.min(window.innerHeight, newY)),
+                };
+            }));
+        };
+
+        const interval = setInterval(animateParticles, 50);
+        return () => clearInterval(interval);
+    }, []);
+
+    // Track mouse position for particle connections
+    useEffect(() => {
+        const handleMouseMove = (e) => {
+            setMousePos({ x: e.clientX, y: e.clientY });
+        };
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+    }, []);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         const copyLoginInfo = { ...loginInfo };
         copyLoginInfo[name] = value;
         setLoginInfo(copyLoginInfo);
+        
+        // Reset states when user starts typing after an error
+        if (isLoading && !loginSuccess) {
+            setIsLoading(false);
+        }
+        if (loginSuccess) {
+            setLoginSuccess(false);
+            setShowConfetti(false);
+        }
     }
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setIsLoading(true);
         setLoginSuccess(false);
+        setShowConfetti(false);
+        
+        // Safety timeout to reset loading state if something goes wrong
+        const timeoutId = setTimeout(() => {
+            setIsLoading(false);
+            setLoginSuccess(false);
+        }, 10000); // 10 seconds timeout
+        
         const { email, password } = loginInfo;
         if (!email || !password) {
             setIsLoading(false);
+            clearTimeout(timeoutId);
             return handleError('Email and password are required')
         }
         try {
@@ -50,9 +139,14 @@ function Login() {
             });
             const result = await response.json();
             const { success, message, jwtToken, name, error } = result;
+            
+            // Clear the safety timeout since we got a response
+            clearTimeout(timeoutId);
+            
             if (success) {
-                // Show success animation
+                // Show success animation and confetti
                 setLoginSuccess(true);
+                setShowConfetti(true);
                 
                 // Store user data
                 localStorage.setItem('token', jwtToken);
@@ -69,10 +163,15 @@ function Login() {
             } else if (error) {
                 const details = error?.details[0].message;
                 handleError(details);
+                setIsLoading(false);
+                setLoginSuccess(false);
             } else if (!success) {
                 handleError(message);
+                setIsLoading(false);
+                setLoginSuccess(false);
             }
         } catch (err) {
+            clearTimeout(timeoutId);
             handleError(err.message || 'Login failed');
             setIsLoading(false);
             setLoginSuccess(false);
@@ -80,7 +179,102 @@ function Login() {
     }
 
     return (
-        <div className={`min-h-screen flex items-center justify-center px-4 py-12 transition-all duration-500 ${themeStyles.bg}`}>
+        <div ref={containerRef} className={`min-h-screen flex items-center justify-center px-4 py-12 transition-all duration-500 ${themeStyles.bg} relative overflow-hidden`}>
+            {/* Interactive Particle Background */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+                <svg className="w-full h-full">
+                    {/* Draw particles */}
+                    {particles.map(particle => (
+                        <circle
+                            key={particle.id}
+                            cx={particle.x}
+                            cy={particle.y}
+                            r={particle.size}
+                            fill={currentTheme === 'light' ? '#3b82f6' : '#60a5fa'}
+                            opacity={particle.opacity}
+                            className="animate-pulse"
+                        />
+                    ))}
+                    {/* Draw connections between nearby particles and mouse */}
+                    {particles.map(particle => {
+                        const distance = Math.sqrt(
+                            Math.pow(particle.x - mousePos.x, 2) + Math.pow(particle.y - mousePos.y, 2)
+                        );
+                        if (distance < 100) {
+                            return (
+                                <line
+                                    key={`line-${particle.id}`}
+                                    x1={particle.x}
+                                    y1={particle.y}
+                                    x2={mousePos.x}
+                                    y2={mousePos.y}
+                                    stroke={currentTheme === 'light' ? '#3b82f6' : '#60a5fa'}
+                                    strokeWidth="1"
+                                    opacity={1 - distance / 100}
+                                />
+                            );
+                        }
+                        return null;
+                    })}
+                    {/* Draw connections between nearby particles */}
+                    {particles.map((particle, i) => 
+                        particles.slice(i + 1).map((other, j) => {
+                            const distance = Math.sqrt(
+                                Math.pow(particle.x - other.x, 2) + Math.pow(particle.y - other.y, 2)
+                            );
+                            if (distance < 80) {
+                                return (
+                                    <line
+                                        key={`connection-${i}-${j}`}
+                                        x1={particle.x}
+                                        y1={particle.y}
+                                        x2={other.x}
+                                        y2={other.y}
+                                        stroke={currentTheme === 'light' ? '#3b82f6' : '#60a5fa'}
+                                        strokeWidth="0.5"
+                                        opacity={1 - distance / 80}
+                                    />
+                                );
+                            }
+                            return null;
+                        })
+                    )}
+                </svg>
+            </div>
+
+            {/* Animated Gradient Waves */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+                <div 
+                    className="absolute inset-0 opacity-20"
+                    style={{
+                        background: `radial-gradient(circle at ${mousePos.x}px ${mousePos.y}px, ${currentTheme === 'light' ? '#3b82f6' : '#60a5fa'} 0%, transparent 50%)`,
+                        transition: 'background 0.3s ease'
+                    }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-pink-500/10 animate-pulse" />
+                <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-500/5 to-transparent transform rotate-45 animate-spin" style={{animationDuration: '20s'}} />
+            </div>
+
+            {/* Confetti Animation */}
+            {showConfetti && (
+                <div className="fixed inset-0 pointer-events-none z-50">
+                    {[...Array(50)].map((_, i) => (
+                        <div
+                            key={i}
+                            className="absolute w-2 h-2 animate-bounce"
+                            style={{
+                                left: `${Math.random() * 100}%`,
+                                top: `-10px`,
+                                backgroundColor: ['#f59e0b', '#ef4444', '#10b981', '#3b82f6', '#8b5cf6'][Math.floor(Math.random() * 5)],
+                                animationDelay: `${Math.random() * 2}s`,
+                                animationDuration: `${2 + Math.random() * 2}s`,
+                                transform: `rotate(${Math.random() * 360}deg)`,
+                            }}
+                        />
+                    ))}
+                </div>
+            )}
+
             {/* Animated Background Elements */}
             <ThemeBackground currentTheme={currentTheme} />
 
@@ -98,13 +292,14 @@ function Login() {
                     {/* Header */}
                     <div className="text-center mb-8">
                         <div className="flex items-center justify-center mb-4">
-                            <Store className={`h-12 w-12 ${themeStyles.accent}`} />
+                            <Store className={`h-12 w-12 ${themeStyles.accent} transform hover:rotate-12 transition-transform duration-300`} />
                         </div>
-                        <h2 className={`text-3xl font-bold ${themeStyles.text}`}>
-                            Welcome Back
+                        <h2 className={`text-3xl font-bold ${themeStyles.text} min-h-[2.5rem]`}>
+                            {typingText}
+                            <span className="animate-pulse">|</span>
                             {getThemeEmoji(currentTheme) && <span className="ml-2">{getThemeEmoji(currentTheme)}</span>}
                         </h2>
-                        <p className={`mt-2 ${themeStyles.text} opacity-80`}>
+                        <p className={`mt-2 ${themeStyles.text} opacity-80 animate-fade-in`}>
                             Sign in to your StoreZen account
                         </p>
                     </div>

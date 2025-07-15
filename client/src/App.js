@@ -7,6 +7,7 @@ import Customer from './pages/customer';
 import Manager from './pages/manager';
 import Login from './pages/LoginPage'
 import Signup from './pages/SignupPage'
+import Profile from './pages/Profile'
 
 function App() {
   return (
@@ -19,6 +20,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Customer />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <Profile />
               </ProtectedRoute>
             } 
           />

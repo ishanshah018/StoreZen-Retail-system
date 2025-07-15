@@ -214,6 +214,11 @@ return (
     {categoryFeatures.map((feature, index) => (
         <Card
         key={feature.title}
+        onClick={() => {
+            if (feature.title === "Your Profile Handle") {
+                navigate('/profile');
+            }
+        }}
         className={`group hover:shadow-lg hover:-translate-y-0.5 transition-all duration-500 cursor-pointer border rounded-lg relative overflow-visible ${
             feature.special
             ? `backdrop-blur-xl border-transparent ${themeStyles.cardBg} ${themeStyles.hoverBg} hover:shadow-blue-500/30 shadow-2xl shadow-blue-500/20 hover:shadow-blue-500/40`

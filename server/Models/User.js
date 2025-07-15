@@ -15,6 +15,36 @@ const UserSchema=new Schema({
         type:String,
         required:true,
     },
+    address:{
+        street: {
+            type: String,
+            default: ''
+        },
+        city: {
+            type: String,
+            default: ''
+        },
+        state: {
+            type: String,
+            default: ''
+        },
+        pincode: {
+            type: String,
+            default: ''
+        }
+    },
+    contactNumber: {
+        type: String,
+        default: ''
+    },
+    notificationPreferences:{
+        promotions: {
+            type: Boolean,
+            default: false
+        }
+    }
+}, {
+    versionKey: false // This removes the __v field
 });
 
 const UserModel=mongoose.model('users',UserSchema);

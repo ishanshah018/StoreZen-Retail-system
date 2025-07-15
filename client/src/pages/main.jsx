@@ -267,7 +267,7 @@ return (
             >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
                 <ShoppingBag className="mr-3 h-6 w-6 relative z-10" />
-                <span className="relative z-10">I am Customer</span>
+                <span className="relative z-10">Customer Portal</span>
             </Button>
             </Link>
 
