@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import { handleError, handleSuccess } from '../lib/utils';
-import { Store, ArrowLeft, User, Mail, Lock, MapPin, Bell, Save, Eye, EyeOff, Home, Building } from 'lucide-react';
+import { ArrowLeft, User, Mail, Lock, MapPin, Bell, Save, Eye, EyeOff, Home, Building } from 'lucide-react';
 import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji, getToastTheme } from '../components/theme';
 
 function Profile() {
@@ -34,12 +34,7 @@ function Profile() {
     // Get theme styles
     const themeStyles = getThemeStyles(currentTheme);
 
-    // Load profile data on component mount
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         setIsLoading(true);
         try {
             const token = localStorage.getItem('token');
@@ -72,7 +67,12 @@ function Profile() {
             setIsLoading(false);
             setInitialLoad(false);
         }
-    };
+    }, [navigate]);
+
+    // Load profile data on component mount
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
 
     const handleInputChange = (e) => {
         const { name, value, type, checked } = e.target;
