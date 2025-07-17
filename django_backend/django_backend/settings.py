@@ -9,6 +9,9 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 from pathlib import Path
 
@@ -135,3 +138,9 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Allow all origins during development (remove in production)
 CORS_ALLOW_ALL_ORIGINS = True
+
+
+
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+TWILIO_WHATSAPP_FROM = os.getenv('TWILIO_WHATSAPP_FROM')
