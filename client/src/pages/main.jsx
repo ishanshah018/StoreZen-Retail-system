@@ -45,18 +45,32 @@ return () => window.removeEventListener('storage', handleStorageChange);
 
 // Toggle between light and manager's selected store theme
 const toggleTheme = () => {
-if (currentTheme === 'light') {
-// Switch from light to manager's selected theme
-const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
-setCurrentTheme(savedManagerTheme);
-localStorage.setItem('storeZenTheme', savedManagerTheme);
-} else {
-// Switch to light mode and save it
-setCurrentTheme('light');
-// Save current theme as manager's store theme before switching to light
-localStorage.setItem('managerStoreTheme', currentTheme);
-localStorage.setItem('storeZenTheme', 'light');
-}
+  if (currentTheme === 'light') {
+    // Switch from light to manager's selected theme
+    const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
+    setCurrentTheme(savedManagerTheme);
+    localStorage.setItem('storeZenTheme', savedManagerTheme);
+    
+    // Dispatch event to sync with manager page
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'storeZenTheme',
+      newValue: savedManagerTheme,
+      oldValue: 'light'
+    }));
+  } else {
+    // Switch to light mode and save it
+    setCurrentTheme('light');
+    // Save current theme as manager's store theme before switching to light
+    localStorage.setItem('managerStoreTheme', currentTheme);
+    localStorage.setItem('storeZenTheme', 'light');
+    
+    // Dispatch event to sync with manager page
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'storeZenTheme',
+      newValue: 'light',
+      oldValue: currentTheme
+    }));
+  }
 };
 
 // Get theme styles and extend with additional properties for landing page

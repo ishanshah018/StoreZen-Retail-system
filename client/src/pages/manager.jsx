@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import { useTheme, getThemeStyles } from "../components/theme";
 import {
 Card,
 CardContent,
@@ -43,13 +44,16 @@ django: {
 };
 
 const Manager = () => {
-// Trie implementation for efficient product search
-class TrieNode {
-constructor() {
-this.children = {};
-this.products = [];
-}
-}
+  // Get theme from global context
+  const { currentTheme, setCurrentTheme } = useTheme();
+
+  // Trie implementation for efficient product search
+  class TrieNode {
+    constructor() {
+      this.children = {};
+      this.products = [];
+    }
+  }
 
 class Trie {
 constructor() {
@@ -130,88 +134,20 @@ const [showSuccess, setShowSuccess] = useState(false);
 const [showAddMore, setShowAddMore] = useState(false);
 const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 const [productToRemove, setProductToRemove] = useState(null);
-const [updateSuccess, setUpdateSuccess] = useState('');// Store theme configuration state
+const [updateSuccess, setUpdateSuccess] = useState('');
+
+// Store theme configuration state (for database storage)
 const [storeTheme, setStoreTheme] = useState(() => {
-const saved = localStorage.getItem('storeZenTheme');
-return saved || 'dark';
+  const saved = localStorage.getItem('managerStoreTheme');
+  return saved || 'dark';
 });
 
-// Theme management system
-const [currentTheme, setCurrentTheme] = useState(() => {
-const saved = localStorage.getItem('storeZenTheme');
-return saved || 'dark';
-});
-
-// Theme styles configuration
-const themeStyles = {
-light: {
-bg: 'bg-gradient-to-br from-gray-50 to-gray-100',
-cardBg: 'bg-white',
-text: 'text-gray-900',
-textSecondary: 'text-gray-600',
-accent: 'text-purple-600',
-border: 'border-gray-200',
-hover: 'hover:shadow-xl hover:shadow-purple-500/20',
-gradientOverlay: 'bg-gradient-to-r from-purple-600/10 to-pink-600/10'
-},
-dark: {
-bg: 'bg-gradient-to-br from-gray-900 to-gray-800',
-cardBg: 'bg-gray-800',
-text: 'text-white',
-textSecondary: 'text-gray-300',
-accent: 'text-purple-400',
-border: 'border-gray-700',
-hover: 'hover:shadow-xl hover:shadow-purple-500/30',
-gradientOverlay: 'bg-gradient-to-r from-purple-500/20 to-pink-500/20'
-},
-christmas: {
-bg: 'bg-gradient-to-br from-red-50 via-green-50 to-red-50',
-cardBg: 'bg-white/90 backdrop-blur-sm border-red-200',
-text: 'text-green-800',
-textSecondary: 'text-red-700',
-accent: 'text-red-600',
-border: 'border-red-200',
-hover: 'hover:shadow-xl hover:shadow-red-500/20 hover:border-green-300',
-gradientOverlay: 'bg-gradient-to-r from-red-500/20 to-green-500/20'
-},
-halloween: {
-bg: 'bg-gradient-to-br from-orange-100 via-purple-50 to-orange-100',
-cardBg: 'bg-gray-900/90 backdrop-blur-sm border-orange-400',
-text: 'text-orange-200',
-textSecondary: 'text-purple-300',
-accent: 'text-orange-400',
-border: 'border-orange-400',
-hover: 'hover:shadow-xl hover:shadow-orange-500/30 hover:border-purple-400',
-gradientOverlay: 'bg-gradient-to-r from-orange-500/20 to-purple-500/20'
-},
-cyberpunk: {
-bg: 'bg-gradient-to-br from-gray-900 via-purple-900 to-cyan-900',
-cardBg: 'bg-gray-800/90 backdrop-blur-sm border-cyan-400',
-text: 'text-cyan-100',
-textSecondary: 'text-purple-300',
-accent: 'text-cyan-400',
-border: 'border-cyan-400',
-hover: 'hover:shadow-xl hover:shadow-cyan-500/30 hover:border-purple-400',
-gradientOverlay: 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20'
-},
-diwali: {
-bg: 'bg-gradient-to-br from-yellow-100 via-orange-50 to-red-100',
-cardBg: 'bg-white/90 backdrop-blur-sm border-yellow-300',
-text: 'text-orange-900',
-textSecondary: 'text-red-700',
-accent: 'text-yellow-600',
-border: 'border-yellow-300',
-hover: 'hover:shadow-xl hover:shadow-yellow-500/20 hover:border-orange-300',
-gradientOverlay: 'bg-gradient-to-r from-yellow-500/20 to-orange-500/20'
-}
-};
-
-// Get current theme styles
-const theme = themeStyles[currentTheme] || themeStyles.dark;
+// Get current theme styles from global context
+const theme = getThemeStyles(currentTheme);
 
 // Store details state (simplified - main data is in managerProfile.storeSettings)
 const [storeDetails, setStoreDetails] = useState({
-name: "StoreZen"
+  name: "StoreZen"
 });
 
 // Manager profile state
@@ -262,9 +198,12 @@ if (response.ok) {
         }
     });
     
-    // Update current theme
-    setStoreTheme(manager.storeSettings?.storeTheme || 'dark');
-    setCurrentTheme(manager.storeSettings?.storeTheme || 'dark');
+    // Store the manager's theme preference but don't force it on page load
+    const savedStoreTheme = manager.storeSettings?.storeTheme || 'dark';
+    setStoreTheme(savedStoreTheme);
+    
+    // Only update localStorage for managerStoreTheme, don't override current theme
+    localStorage.setItem('managerStoreTheme', savedStoreTheme);
     
     // Update store details
     setStoreDetails(prev => ({
@@ -384,7 +323,15 @@ if (response.ok) {
         }
     }));
     
+    // Update global theme context
     setCurrentTheme(storeTheme);
+    
+    // Save manager's store theme separately for main page toggle
+    localStorage.setItem('managerStoreTheme', storeTheme);
+    
+    // Update current theme in localStorage and dispatch event
+    localStorage.setItem('storeZenTheme', storeTheme);
+    localStorage.setItem('storeName', storeDetails.name);
     
     // Trigger storage event to sync with main page
     window.dispatchEvent(new StorageEvent('storage', {
@@ -393,9 +340,12 @@ if (response.ok) {
         oldValue: localStorage.getItem('storeZenTheme')
     }));
     
-    // Still update localStorage for compatibility
-    localStorage.setItem('storeZenTheme', storeTheme);
-    localStorage.setItem('storeName', storeDetails.name);
+    // Also dispatch managerStoreTheme event for main page toggle tracking
+    window.dispatchEvent(new StorageEvent('storage', {
+        key: 'managerStoreTheme',
+        newValue: storeTheme,
+        oldValue: localStorage.getItem('managerStoreTheme')
+    }));
     
     return { success: true, message: data.message || 'Store settings saved successfully!' };
     } else {
@@ -413,29 +363,28 @@ setProfileLoading(false);
 };
 
 useEffect(() => {
-// Load manager profile from MongoDB on component mount
-fetchManagerProfile();
-
-// Apply theme to document
-// Remove all theme classes first
-document.documentElement.classList.remove('dark', 'christmas', 'halloween', 'cyberpunk', 'diwali');
-
-// Add current theme class (light doesn't need a class)
-if (currentTheme !== 'light') {
-document.documentElement.classList.add(currentTheme);
-}
-}, [currentTheme]);
+  // Load manager profile from MongoDB on component mount
+  fetchManagerProfile();
+  
+  // Initialize store theme from manager profile when component mounts
+  const savedStoreTheme = localStorage.getItem('managerStoreTheme') || 'dark';
+  setStoreTheme(savedStoreTheme);
+}, []);
 
 // Listen for theme changes from other pages/tabs
 useEffect(() => {
-const handleStorageChange = (e) => {
-if (e.key === 'storeZenTheme' && e.newValue !== null) {
-setCurrentTheme(e.newValue);
-}
-};
+  const handleStorageChange = (e) => {
+    if (e.key === 'managerStoreTheme' && e.newValue !== null) {
+      setStoreTheme(e.newValue);
+    }
+    // Listen for theme changes from main page
+    if (e.key === 'storeZenTheme' && e.newValue !== null) {
+      setCurrentTheme(e.newValue);
+    }
+  };
 
-window.addEventListener('storage', handleStorageChange);
-return () => window.removeEventListener('storage', handleStorageChange);
+  window.addEventListener('storage', handleStorageChange);
+  return () => window.removeEventListener('storage', handleStorageChange);
 }, []);
 
 const inventoryFeatures = [
