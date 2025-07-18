@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
+
+// Manager Schema - Defines the structure for store manager data
 const ManagerSchema = new Schema({
     name: {
         type: String,
@@ -60,43 +62,17 @@ const ManagerSchema = new Schema({
             type: String,
             default: "Asia/Kolkata"
         }
-    },
-    permissions: {
-        canManageInventory: {
-            type: Boolean,
-            default: true
-        },
-        canViewAnalytics: {
-            type: Boolean,
-            default: true
-        },
-        canManageCustomers: {
-            type: Boolean,
-            default: true
-        },
-        canConfigureStore: {
-            type: Boolean,
-            default: true
-        }
-    },
-    lastLogin: {
-        type: Date,
-        default: Date.now
-    },
-    isActive: {
-        type: Boolean,
-        default: true
     }
 }, {
-    timestamps: true, // Adds createdAt and updatedAt
     versionKey: false // Removes __v field
 });
 
-// Index for better query performance
-ManagerSchema.index({ email: 1 });
-ManagerSchema.index({ isActive: 1 });
 
-// Virtual for full store address
+// Database indexes for better query performance
+ManagerSchema.index({ email: 1 });
+
+
+// Virtual field - Returns formatted store information
 ManagerSchema.virtual('fullStoreInfo').get(function() {
     return {
         name: this.storeSettings.storeName,
@@ -107,15 +83,10 @@ ManagerSchema.virtual('fullStoreInfo').get(function() {
     };
 });
 
-// Method to update last login
-ManagerSchema.methods.updateLastLogin = function() {
-    this.lastLogin = new Date();
-    return this.save();
-};
 
-// Static method to get or create default manager
+// Static method - Gets existing manager or creates default one
 ManagerSchema.statics.getOrCreateDefault = async function() {
-    let manager = await this.findOne({ isActive: true });
+    let manager = await this.findOne({});
     
     if (!manager) {
         manager = new this({
@@ -129,6 +100,7 @@ ManagerSchema.statics.getOrCreateDefault = async function() {
     
     return manager;
 };
+
 
 const ManagerModel = mongoose.model('managers', ManagerSchema);
 

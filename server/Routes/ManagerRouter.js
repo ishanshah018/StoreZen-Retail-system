@@ -4,24 +4,24 @@ const {
     getManagerProfile,
     updateManagerProfile,
     updateStoreSettings,
-    getStoreInfo,
-    updateManagerPermissions
+    getStoreInfo
 } = require('../Controllers/ManagerController');
 
-// Manager profile routes
+
+// Manager profile routes - Handle profile data operations
 router.get('/profile', getManagerProfile);
 router.put('/profile', updateManagerProfile);
 router.patch('/profile', updateManagerProfile); // Support both PUT and PATCH
 
-// Store settings routes
+
+// Store settings routes - Handle store theme and display settings
 router.get('/store-settings', getStoreInfo);
 router.put('/store-settings', updateStoreSettings);
 router.patch('/store-settings', updateStoreSettings);
 
-// Store info for customers (public route)
+
+// Public store info route - For customer viewing
 router.get('/store-info', getStoreInfo);
 
-// Manager permissions (for future admin features)
-router.put('/permissions', updateManagerPermissions);
 
 module.exports = router;

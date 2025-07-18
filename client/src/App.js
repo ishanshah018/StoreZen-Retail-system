@@ -5,16 +5,24 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Main from './pages/main';
 import Customer from './pages/customer';
 import Manager from './pages/manager';
-import Login from './pages/LoginPage'
-import Signup from './pages/SignupPage'
-import Profile from './pages/Profile'
+import Login from './pages/LoginPage';
+import Signup from './pages/SignupPage';
+import Profile from './pages/Profile';
 
+
+// Main App component - Handles routing and theme provider
 function App() {
   return (
     <ThemeProvider>
       <Router>
         <Routes>
+          {/* Public routes */}
           <Route path="/" element={<Main />} />
+          <Route path="/manager" element={<Manager />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          {/* Protected routes - require authentication */}
           <Route 
             path="/customer" 
             element={
@@ -31,13 +39,11 @@ function App() {
               </ProtectedRoute>
             } 
           />
-          <Route path="/manager" element={<Manager />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
         </Routes>
       </Router>
     </ThemeProvider>
   );
 }
+
 
 export default App;

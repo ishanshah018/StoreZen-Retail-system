@@ -1,17 +1,15 @@
 const ManagerModel = require('../Models/Manager');
 
-// Get manager profile
+
+// API endpoint - Get manager profile data from database
 const getManagerProfile = async (req, res) => {
     try {
-        let manager = await ManagerModel.findOne({ isActive: true });
+        let manager = await ManagerModel.findOne({});
         
         if (!manager) {
             // Create default manager if none exists
             manager = await ManagerModel.getOrCreateDefault();
         }
-
-        // Update last login
-        await manager.updateLastLogin();
 
         res.status(200).json({
             success: true,
@@ -25,11 +23,7 @@ const getManagerProfile = async (req, res) => {
                 whatsappNumber: manager.whatsappNumber,
                 lowStockThreshold: manager.lowStockThreshold,
                 whatsappAlertsEnabled: manager.whatsappAlertsEnabled,
-                storeSettings: manager.storeSettings,
-                permissions: manager.permissions,
-                lastLogin: manager.lastLogin,
-                createdAt: manager.createdAt,
-                updatedAt: manager.updatedAt
+                storeSettings: manager.storeSettings
             }
         });
     } catch (error) {
@@ -42,7 +36,8 @@ const getManagerProfile = async (req, res) => {
     }
 };
 
-// Update manager profile
+
+// API endpoint - Update manager profile information
 const updateManagerProfile = async (req, res) => {
     try {
         const {
@@ -55,7 +50,7 @@ const updateManagerProfile = async (req, res) => {
             whatsappAlertsEnabled
         } = req.body;
 
-        let manager = await ManagerModel.findOne({ isActive: true });
+        let manager = await ManagerModel.findOne({});
         
         if (!manager) {
             manager = await ManagerModel.getOrCreateDefault();
@@ -84,9 +79,7 @@ const updateManagerProfile = async (req, res) => {
                 whatsappNumber: manager.whatsappNumber,
                 lowStockThreshold: manager.lowStockThreshold,
                 whatsappAlertsEnabled: manager.whatsappAlertsEnabled,
-                storeSettings: manager.storeSettings,
-                permissions: manager.permissions,
-                updatedAt: manager.updatedAt
+                storeSettings: manager.storeSettings
             }
         });
     } catch (error) {
@@ -99,7 +92,8 @@ const updateManagerProfile = async (req, res) => {
     }
 };
 
-// Update store settings
+
+// API endpoint - Update store theme and display settings
 const updateStoreSettings = async (req, res) => {
     try {
         const {
@@ -109,7 +103,7 @@ const updateStoreSettings = async (req, res) => {
             timezone
         } = req.body;
 
-        let manager = await ManagerModel.findOne({ isActive: true });
+        let manager = await ManagerModel.findOne({});
         
         if (!manager) {
             manager = await ManagerModel.getOrCreateDefault();
@@ -138,10 +132,11 @@ const updateStoreSettings = async (req, res) => {
     }
 };
 
-// Get store info for customers
+
+// API endpoint - Get basic store information for customer view
 const getStoreInfo = async (req, res) => {
     try {
-        const manager = await ManagerModel.findOne({ isActive: true });
+        const manager = await ManagerModel.findOne({});
         
         if (!manager) {
             return res.status(404).json({
@@ -169,47 +164,10 @@ const getStoreInfo = async (req, res) => {
     }
 };
 
-// Update manager permissions (for future admin features)
-const updateManagerPermissions = async (req, res) => {
-    try {
-        const { permissions } = req.body;
-
-        let manager = await ManagerModel.findOne({ isActive: true });
-        
-        if (!manager) {
-            manager = await ManagerModel.getOrCreateDefault();
-        }
-
-        // Update permissions
-        if (permissions) {
-            Object.keys(permissions).forEach(key => {
-                if (manager.permissions[key] !== undefined) {
-                    manager.permissions[key] = permissions[key];
-                }
-            });
-        }
-
-        await manager.save();
-
-        res.status(200).json({
-            success: true,
-            message: "Manager permissions updated successfully",
-            permissions: manager.permissions
-        });
-    } catch (error) {
-        console.error('Error updating manager permissions:', error);
-        res.status(500).json({
-            success: false,
-            message: "Failed to update manager permissions",
-            error: error.message
-        });
-    }
-};
 
 module.exports = {
     getManagerProfile,
     updateManagerProfile,
     updateStoreSettings,
-    getStoreInfo,
-    updateManagerPermissions
+    getStoreInfo
 };

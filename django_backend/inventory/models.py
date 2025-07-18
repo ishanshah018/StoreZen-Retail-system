@@ -1,7 +1,11 @@
 from django.db import models
 from django.utils import timezone
 
+
 class Product(models.Model):
+    """
+    Product model - Stores inventory items with stock tracking
+    """
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -23,6 +27,10 @@ class Product(models.Model):
 
 
 class ManagerProfile(models.Model):
+    """
+    Manager Profile model - Legacy model for backward compatibility
+    Note: Main manager data is now stored in MongoDB via Node.js
+    """
     name = models.CharField(max_length=100, default="Store Manager")
     store_address = models.TextField(blank=True)
     email = models.EmailField(blank=True)
@@ -42,6 +50,9 @@ class ManagerProfile(models.Model):
 
 
 class LowStockAlert(models.Model):
+    """
+    Low Stock Alert model - Tracks sent WhatsApp alerts to prevent duplicates
+    """
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     threshold_value = models.IntegerField()
     stock_at_alert = models.IntegerField()

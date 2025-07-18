@@ -1,6 +1,8 @@
 import React, { forwardRef } from "react";
-import { cn } from "../../lib/utils"; // adjust path if needed
+import { cn } from "../../lib/utils";
 
+
+// Card component - Main container for content sections
 const Card = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -13,6 +15,8 @@ const Card = forwardRef(({ className, ...props }, ref) => (
 ));
 Card.displayName = "Card";
 
+
+// Card header - Top section of card with title and description
 const CardHeader = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -22,6 +26,8 @@ const CardHeader = forwardRef(({ className, ...props }, ref) => (
 ));
 CardHeader.displayName = "CardHeader";
 
+
+// Card title - Main heading for card content
 const CardTitle = forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
@@ -36,6 +42,8 @@ const CardTitle = forwardRef(({ className, ...props }, ref) => (
 ));
 CardTitle.displayName = "CardTitle";
 
+
+// Card description - Subtitle or supporting text
 const CardDescription = forwardRef(({ className, ...props }, ref) => (
   <p
     ref={ref}
@@ -45,11 +53,15 @@ const CardDescription = forwardRef(({ className, ...props }, ref) => (
 ));
 CardDescription.displayName = "CardDescription";
 
+
+// Card content - Main body content area
 const CardContent = forwardRef(({ className, ...props }, ref) => (
   <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
+
+// Card footer - Bottom section for actions or additional info
 const CardFooter = forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
@@ -58,6 +70,7 @@ const CardFooter = forwardRef(({ className, ...props }, ref) => (
   />
 ));
 CardFooter.displayName = "CardFooter";
+
 
 export {
   Card,

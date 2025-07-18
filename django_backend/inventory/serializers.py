@@ -1,8 +1,11 @@
 from rest_framework import serializers
 from .models import Product
 
+
 class ProductSerializer(serializers.ModelSerializer):
-    """Full product serializer for managers"""
+    """
+    Full product serializer - Used by manager dashboard with all fields
+    """
     in_stock = serializers.ReadOnlyField()  # Make in_stock read-only
     
     class Meta:
@@ -10,8 +13,11 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ['in_stock']  # Ensure in_stock is read-only
 
+
 class CustomerProductSerializer(serializers.ModelSerializer):
-    """Product serializer for customers (excludes demand_level)"""
+    """
+    Customer product serializer - Limited fields for public customer view
+    """
     in_stock = serializers.ReadOnlyField()  # Make in_stock read-only
     
     class Meta:

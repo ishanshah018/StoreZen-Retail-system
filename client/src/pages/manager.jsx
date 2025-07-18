@@ -229,12 +229,6 @@ storeName: "StoreZen",
 storeTheme: "dark",
 currency: "₹",
 timezone: "Asia/Kolkata"
-},
-permissions: {
-canManageInventory: true,
-canViewAnalytics: true,
-canManageCustomers: true,
-canConfigureStore: true
 }
 });
 
@@ -265,12 +259,6 @@ if (response.ok) {
         storeTheme: "dark",
         currency: "₹",
         timezone: "Asia/Kolkata"
-        },
-        permissions: manager.permissions || {
-        canManageInventory: true,
-        canViewAnalytics: true,
-        canManageCustomers: true,
-        canConfigureStore: true
         }
     });
     

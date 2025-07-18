@@ -1,17 +1,21 @@
 import os
-from twilio.rest import Client
-from django.conf import settings
-from .models import Product, LowStockAlert
 import logging
+from twilio.rest import Client
+from .models import Product, LowStockAlert
 
 logger = logging.getLogger(__name__)
 
+
 class WhatsAppService:
+    """
+    WhatsApp Service - Handles Twilio WhatsApp API for sending low stock alerts
+    """
+    
     def __init__(self):
-        # Twilio credentials - Add these to your environment variables
+        # Twilio credentials from environment variables
         self.account_sid = os.getenv('TWILIO_ACCOUNT_SID', 'your_account_sid_here')
         self.auth_token = os.getenv('TWILIO_AUTH_TOKEN', 'your_auth_token_here')
-        self.whatsapp_from = os.getenv('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')  # Twilio Sandbox number
+        self.whatsapp_from = os.getenv('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
         
         try:
             self.client = Client(self.account_sid, self.auth_token)
@@ -19,9 +23,10 @@ class WhatsAppService:
             logger.error(f"Failed to initialize Twilio client: {e}")
             self.client = None
     
+
     def send_low_stock_alert(self, manager_phone, product_name, current_stock, threshold):
         """
-        Send WhatsApp message for low stock alert
+        Send WhatsApp low stock alert message to manager
         """
         if not self.client:
             logger.error("Twilio client not initialized")
@@ -57,10 +62,11 @@ Threshold: *{threshold}*
             logger.error(f"Failed to send WhatsApp message: {e}")
             return False
     
+
     def check_and_send_alerts(self, manager_phone, threshold):
         """
         Check all products for low stock and send alerts
-        Only sends alert once per product until stock is replenished above threshold
+        Prevents duplicate alerts until stock is replenished
         """
         if not manager_phone:
             logger.warning("Manager phone number not provided")

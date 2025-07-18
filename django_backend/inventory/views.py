@@ -1,19 +1,23 @@
+import json
+import requests
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-import json
-import requests
 from .models import Product, ManagerProfile, LowStockAlert
 from .serializers import ProductSerializer, CustomerProductSerializer
 from .whatsapp_service import WhatsAppService
 
-# Node.js server configuration
+
+# Node.js server configuration for manager profile data
 NODE_SERVER_URL = 'http://localhost:8000'
 
+
 def get_manager_profile_from_mongodb():
-    """Fetch manager profile from Node.js MongoDB server"""
+    """
+    Fetch manager profile from Node.js MongoDB server
+    """
     try:
         response = requests.get(f'{NODE_SERVER_URL}/manager/profile')
         if response.status_code == 200:
@@ -25,13 +29,16 @@ def get_manager_profile_from_mongodb():
         print(f"Error fetching manager profile from MongoDB: {e}")
         return None
 
+
 class ProductViewSet(viewsets.ModelViewSet):
-    """Full CRUD operations for managers"""
+    """
+    Product management - Full CRUD operations for manager dashboard
+    """
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     
     def update(self, request, *args, **kwargs):
-        """Override update to check for low stock alerts"""
+        """Override update to check for low stock alerts after product update"""
         response = super().update(request, *args, **kwargs)
         
         # After updating product, check if we need to send alerts
@@ -42,7 +49,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return response
     
     def create(self, request, *args, **kwargs):
-        """Override create to check for low stock alerts"""
+        """Override create to check for low stock alerts after product creation"""
         response = super().create(request, *args, **kwargs)
         
         # After creating product, check if we need to send alerts
@@ -55,7 +62,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         return response
     
     def check_low_stock_alert(self, product):
-        """Check if product stock is below threshold and send alert"""
+        """Check if product stock is below threshold and send WhatsApp alert"""
         try:
             # Get manager profile from MongoDB via Node.js
             manager_profile = get_manager_profile_from_mongodb()
@@ -71,9 +78,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         except Exception as e:
             print(f"Error checking low stock alert: {e}")
 
+
 @api_view(['GET'])
 def customer_products(request):
-    """Get products for customers (excludes demand_level)"""
+    """
+    Get products for customer view - excludes sensitive data like demand_level
+    """
     category = request.GET.get('category')
     if category:
         products = Product.objects.filter(in_stock=True, category=category)
@@ -82,15 +92,21 @@ def customer_products(request):
     serializer = CustomerProductSerializer(products, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
 def get_categories(request):
-    """Get all unique categories from products"""
+    """
+    Get all unique product categories for customer filtering
+    """
     categories = Product.objects.filter(in_stock=True).values_list('category', flat=True).distinct()
     return Response(list(categories))
 
+
 @api_view(['GET', 'POST'])
 def manager_profile(request):
-    """Get or update manager profile"""
+    """
+    Legacy manager profile endpoint - kept for backward compatibility
+    """
     if request.method == 'GET':
         try:
             profile = ManagerProfile.objects.first()
@@ -143,9 +159,12 @@ def manager_profile(request):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+
 @api_view(['POST'])
 def test_whatsapp_alert(request):
-    """Test WhatsApp alert functionality"""
+    """
+    Test WhatsApp alert functionality - sends sample message to manager
+    """
     try:
         # Get manager profile from MongoDB via Node.js
         manager_profile = get_manager_profile_from_mongodb()
@@ -175,9 +194,12 @@ def test_whatsapp_alert(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+
 @api_view(['POST'])
 def check_low_stock_alerts(request):
-    """Manually trigger low stock alert check"""
+    """
+    Manually trigger low stock alert check - scans all products and sends alerts
+    """
     try:
         # Get manager profile from MongoDB via Node.js
         manager_profile = get_manager_profile_from_mongodb()
@@ -195,23 +217,25 @@ def check_low_stock_alerts(request):
         threshold = manager_profile.get('lowStockThreshold', 10)
         
         whatsapp_service = WhatsAppService()
-        alerts_sent = whatsapp_service.check_and_send_alerts(
+        whatsapp_service.check_and_send_alerts(
             whatsapp_number,
             threshold
         )
         
         return Response({
             'message': f'Low stock check completed',
-            'alerts_sent': alerts_sent,
             'threshold': threshold
         })
         
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+
 @api_view(['GET'])
 def low_stock_alerts_history(request):
-    """Get history of low stock alerts"""
+    """
+    Get history of sent low stock alerts for monitoring
+    """
     try:
         alerts = LowStockAlert.objects.all().order_by('-sent_at')[:50]  # Last 50 alerts
         
