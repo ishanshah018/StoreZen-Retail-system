@@ -7,7 +7,8 @@ from .views import (
     manager_profile,
     test_whatsapp_alert,
     check_low_stock_alerts,
-    low_stock_alerts_history
+    low_stock_alerts_history,
+    download_stock_pdf
 )
 
 router = DefaultRouter()
@@ -21,4 +22,5 @@ urlpatterns = [
     path('manager/test-whatsapp/', test_whatsapp_alert, name='test-whatsapp'),
     path('manager/check-alerts/', check_low_stock_alerts, name='check-alerts'),
     path('manager/alerts-history/', low_stock_alerts_history, name='alerts-history'),
+    path('manager/download-stock-pdf/', download_stock_pdf, name='download-stock-pdf'),
 ]

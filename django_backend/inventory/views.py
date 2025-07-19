@@ -3,8 +3,9 @@ import requests
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from .models import Product, ManagerProfile, LowStockAlert
 from .serializers import ProductSerializer, CustomerProductSerializer
 from .whatsapp_service import WhatsAppService
@@ -255,3 +256,143 @@ def low_stock_alerts_history(request):
         
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+
+@require_http_methods(["GET"])
+@csrf_exempt
+def download_stock_pdf(request):
+    """
+    Generate and download PDF report of current stock inventory
+    """
+    print("PDF download endpoint called")  # Debug log
+    
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib import colors
+        from reportlab.lib.units import inch
+        from datetime import datetime
+        import io
+
+        print("Imports successful")  # Debug log
+
+        # Create PDF buffer
+        buffer = io.BytesIO()
+        
+        # Create PDF document
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        elements = []
+        
+        # Styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=1,  # Center alignment
+            textColor=colors.darkblue
+        )
+        
+        # Title
+        title = Paragraph("Stock Inventory Report", title_style)
+        elements.append(title)
+        
+        # Date
+        date_style = ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=10, alignment=1)
+        date_text = Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", date_style)
+        elements.append(date_text)
+        elements.append(Spacer(1, 20))
+        
+        # Get products data
+        products = Product.objects.all().order_by('category', 'name')
+        print(f"Found {products.count()} products")  # Debug log
+        
+        # Prepare table data
+        data = [['Product Name', 'Category', 'Price (Rs)', 'Stock', 'Status']]
+        
+        for product in products:
+            status = 'Out of Stock' if product.stock == 0 else 'Low Stock' if product.stock <= 10 else 'In Stock'
+            data.append([
+                product.name[:30] + '...' if len(product.name) > 30 else product.name,
+                product.category,
+                f"{product.price}",
+                str(product.stock),
+                status
+            ])
+        
+        print(f"Prepared table with {len(data)} rows")  # Debug log
+        
+        # Create table
+        table = Table(data, colWidths=[2.5*inch, 1.5*inch, 1*inch, 0.8*inch, 1*inch])
+        
+        # Table style
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+        ]))
+        
+        elements.append(table)
+        
+        # Summary
+        elements.append(Spacer(1, 20))
+        total_products = products.count()
+        total_value = sum(p.price * p.stock for p in products)
+        out_of_stock = products.filter(stock=0).count()
+        low_stock = products.filter(stock__lte=10, stock__gt=0).count()
+        
+        summary_data = [
+            ['Total Products', str(total_products)],
+            ['Total Inventory Value', f"{total_value:,.2f} Rs."],
+            ['Out of Stock Items', str(out_of_stock)],
+            ['Low Stock Items', str(low_stock)]
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[2*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.lightblue),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ]))
+        
+        elements.append(summary_table)
+        
+        print("Building PDF...")  # Debug log
+        
+        # Build PDF
+        doc.build(elements)
+        
+        # Return PDF response
+        buffer.seek(0)
+        pdf_data = buffer.getvalue()
+        
+        print(f"PDF generated successfully, size: {len(pdf_data)} bytes")  # Debug log
+        
+        response = HttpResponse(pdf_data, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="stock_inventory_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")  # Debug log
+        print(f"Error type: {type(e).__name__}")  # Debug log
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")  # Debug log
+        
+        return HttpResponse(
+            f"Error generating PDF: {str(e)}", 
+            status=500, 
+            content_type='text/plain'
+        )
