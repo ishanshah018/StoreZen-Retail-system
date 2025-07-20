@@ -12,7 +12,7 @@ from .whatsapp_service import WhatsAppService
 
 
 # Node.js server configuration for manager profile data
-NODE_SERVER_URL = 'http://localhost:8000'
+NODE_SERVER_URL = 'http://localhost:8080'
 
 
 def get_manager_profile_from_mongodb():
@@ -228,6 +228,19 @@ def check_low_stock_alerts(request):
             'threshold': threshold
         })
         
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def twilio_account_status(request):
+    """
+    Check Twilio account status and recent message delivery
+    """
+    try:
+        whatsapp_service = WhatsAppService()
+        status = whatsapp_service.check_account_status()
+        return Response(status)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 

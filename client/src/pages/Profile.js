@@ -43,7 +43,7 @@ function Profile() {
                 return;
             }
 
-            const response = await fetch('http://localhost:8000/profile', {
+            const response = await fetch('http://localhost:8080/profile', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -122,7 +122,7 @@ function Profile() {
                 updateData.password = profileData.password;
             }
 
-            const response = await fetch('http://localhost:8000/profile', {
+            const response = await fetch('http://localhost:8080/profile', {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${token}`,

@@ -8,6 +8,7 @@ from .views import (
     test_whatsapp_alert,
     check_low_stock_alerts,
     low_stock_alerts_history,
+    twilio_account_status,
     download_stock_pdf
 )
 
@@ -22,5 +23,6 @@ urlpatterns = [
     path('manager/test-whatsapp/', test_whatsapp_alert, name='test-whatsapp'),
     path('manager/check-alerts/', check_low_stock_alerts, name='check-alerts'),
     path('manager/alerts-history/', low_stock_alerts_history, name='alerts-history'),
+    path('manager/twilio-status/', twilio_account_status, name='twilio-status'),
     path('manager/download-stock-pdf/', download_stock_pdf, name='download-stock-pdf'),
 ]

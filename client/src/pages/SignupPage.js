@@ -39,7 +39,7 @@ function Signup() {
             return handleError('Name, email and password are required')
         }
         try {
-            const url = `http://localhost:8000/auth/signup`;
+            const url = `http://localhost:8080/auth/signup`;
             const response = await fetch(url, {
                 method: "POST",
                 headers: {
