@@ -1,205 +1,202 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+
+// UI Components
 import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+
+// Theme Components
 import { useTheme, getThemeStyles } from "../components/theme";
 import {
-Card,
-CardContent,
-CardDescription,
-CardHeader,
-CardTitle,
-} from "../components/ui/card";
+  GradientButton,
+  GradientBadge,
+  ActionCard,
+  GlassmorphismModal,
+  ThemeCollections
+} from "../components/theme";
+
+// Icons
 import {
-Package,
-BarChart,
-Megaphone,
-Users,
-Percent,
-MessageCircle,
-Heart,
-Plus,
-Send,
-TrendingUp,
-AlertTriangle,
-Settings,
-Calendar,
-Clock,
-Store,
-ArrowLeft,
+  Package, BarChart, Megaphone, Users, Percent, MessageCircle,
+  Heart, Plus, Send, TrendingUp, AlertTriangle, Settings,
+  Calendar, Clock, Store, ArrowLeft,
 } from "lucide-react";
 
-// API Configuration
-const API_CONFIG = {
-NODE_SERVER: 'http://localhost:8000',
-DJANGO_SERVER: 'http://127.0.0.1:8000',
-endpoints: {
-manager: {
-profile: '/manager/profile',
-storeSettings: '/manager/store-settings'
-},
-django: {
-products: '/api/products/'
+// Utilities and API
+import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
+
+// =============================================================================
+// UTILITY CLASSES - TRIE DATA STRUCTURE FOR SEARCH
+// =============================================================================
+
+/** Trie node for efficient product search implementation */
+class TrieNode {
+  constructor() {
+    this.children = {};    // Character mapping to child nodes
+    this.products = [];    // Products that match this prefix
+  }
 }
+
+/** Trie data structure for O(m) search complexity */
+class Trie {
+  constructor() {
+    this.root = new TrieNode();
+  }
+
+  /** Insert product into trie by name and category */
+  insert(product) {
+    this.insertWord(product.name.toLowerCase(), product);      // Search by name
+    this.insertWord(product.category.toLowerCase(), product);  // Search by category
+  }
+
+  /** Insert individual word into trie */
+  insertWord(word, product) {
+    let node = this.root;
+    for (let char of word) {
+      if (!node.children[char]) {
+        node.children[char] = new TrieNode();
+      }
+      node = node.children[char];
+      node.products.push(product);
+    }
+  }
+
+  /** Search products by query prefix */
+  search(query) {
+    const lowerQuery = query.toLowerCase().trim();
+    if (!lowerQuery) return [];
+
+    let node = this.root;
+    for (let char of lowerQuery) {
+      if (!node.children[char]) return [];
+      node = node.children[char];
+    }
+
+    // Remove duplicates using Set with product ID
+    const uniqueProducts = new Map();
+    for (let product of node.products) {
+      uniqueProducts.set(product.id, product);
+    }
+    return Array.from(uniqueProducts.values());
+  }
 }
-};
+
+// =============================================================================
+// MAIN MANAGER COMPONENT
+// =============================================================================
 
 const Manager = () => {
-// Get theme from global context
-const { currentTheme, setCurrentTheme } = useTheme();
+  // Theme management
+  const { currentTheme, setCurrentTheme } = useTheme();
+  const theme = getThemeStyles(currentTheme);
 
-// Trie implementation for efficient product search
-class TrieNode {
-constructor() {
-    this.children = {};
-    this.products = [];
-}
-}
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
 
-class Trie {
-constructor() {
-this.root = new TrieNode();
-}
+  // Modal visibility states
+  const [showInventoryOptions, setShowInventoryOptions] = useState(false);
+  const [showStockView, setShowStockView] = useState(false);
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [showUpdateStock, setShowUpdateStock] = useState(false);
+  const [showRemoveProduct, setShowRemoveProduct] = useState(false);
+  const [showReportOptions, setShowReportOptions] = useState(false);
+  const [showOutOfStockSettings, setShowOutOfStockSettings] = useState(false);
+  const [showStoreSettings, setShowStoreSettings] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
 
-insert(product) {
-// Insert by product name
-this.insertWord(product.name.toLowerCase(), product);
-// Insert by category
-this.insertWord(product.category.toLowerCase(), product);
-}
+  // Confirmation modal states
+  const [showAddMore, setShowAddMore] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
 
-insertWord(word, product) {
-let node = this.root;
-for (let char of word) {
-if (!node.children[char]) {
-node.children[char] = new TrieNode();
-}
-node = node.children[char];
-node.products.push(product);
-}
-}
+  // Data states
+  const [stockData, setStockData] = useState([]);               // All products
+  const [filteredStockData, setFilteredStockData] = useState([]); // Filtered products
+  const [updateStockData, setUpdateStockData] = useState([]);   // Update form data
+  const [productToRemove, setProductToRemove] = useState(null); // Product to delete
 
-search(query) {
-const lowerQuery = query.toLowerCase().trim();
-if (!lowerQuery) return [];
+  // Loading and error states
+  const [stockLoading, setStockLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [loading, setLoading] = useState(false);              // General loading
+  const [stockError, setStockError] = useState(null);
 
-let node = this.root;
-for (let char of lowerQuery) {
-if (!node.children[char]) {
-return [];
-}
-node = node.children[char];
-}
+  // Success feedback states
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState('');
+  const [showPdfSuccess, setShowPdfSuccess] = useState(false);
 
-// Remove duplicates using Set with product id
-const uniqueProducts = new Map();
-for (let product of node.products) {
-uniqueProducts.set(product.id, product);
-}
-return Array.from(uniqueProducts.values());
-}
-}
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState('');
+  const [updateStockSearchQuery, setUpdateStockSearchQuery] = useState('');
+  const [removeProductSearchQuery, setRemoveProductSearchQuery] = useState('');
+  const [filteredUpdateStockData, setFilteredUpdateStockData] = useState([]);
+  const [filteredRemoveProductData, setFilteredRemoveProductData] = useState([]);
+  const [productTrie] = useState(() => new Trie());            // Search index
 
-// Modal states
-const [showInventoryOptions, setShowInventoryOptions] = useState(false);
-const [showStockView, setShowStockView] = useState(false);
-const [showAddProduct, setShowAddProduct] = useState(false);
-const [showUpdateStock, setShowUpdateStock] = useState(false);
-const [showRemoveProduct, setShowRemoveProduct] = useState(false);
-const [showReportOptions, setShowReportOptions] = useState(false);
-const [showOutOfStockSettings, setShowOutOfStockSettings] = useState(false);
-const [showStoreSettings, setShowStoreSettings] = useState(false);
-const [showThemeSettings, setShowThemeSettings] = useState(false);
-const [showProfileSettings, setShowProfileSettings] = useState(false);
+  // Product form data
+  const [newProduct, setNewProduct] = useState({
+    name: '',
+    category: '',
+    price: '',
+    stock: ''
+  });
 
-// Stock data state
-const [stockData, setStockData] = useState([]);
-const [stockLoading, setStockLoading] = useState(false);
-const [stockError, setStockError] = useState(null);
+  // Product validation and suggestions
+  const [productSuggestions, setProductSuggestions] = useState([]);
+  const [showProductSuggestions, setShowProductSuggestions] = useState(false);
+  const [productNameError, setProductNameError] = useState('');
+  const [isValidatingProduct, setIsValidatingProduct] = useState(false);
 
-// Search functionality state
-const [searchQuery, setSearchQuery] = useState('');
-const [filteredStockData, setFilteredStockData] = useState([]);
-const [productTrie] = useState(() => new Trie());
+  // Category management
+  const [categorySuggestions, setCategorySuggestions] = useState([]);
+  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState([]);
 
-// Search states for stock update and remove products
-const [updateStockSearchQuery, setUpdateStockSearchQuery] = useState('');
-const [filteredUpdateStockData, setFilteredUpdateStockData] = useState([]);
-const [removeProductSearchQuery, setRemoveProductSearchQuery] = useState('');
-const [filteredRemoveProductData, setFilteredRemoveProductData] = useState([]);
+  // Manager profile data
+  const [managerProfile, setManagerProfile] = useState({
+    id: null,
+    name: "Store Manager",
+    storeAddress: "",
+    email: "",
+    contact: "",
+    whatsappNumber: "",
+    lowStockThreshold: 10,
+    whatsappAlertsEnabled: true,
+    storeSettings: {
+      storeName: "StoreZen",
+      storeTheme: "dark",
+      currency: "₹",
+      timezone: "Asia/Kolkata"
+    }
+  });
 
-// Product form states
-const [newProduct, setNewProduct] = useState({
-name: '',
-category: '',
-price: '',
-stock: ''
-});
-const [updateStockData, setUpdateStockData] = useState([]);
-const [loading, setLoading] = useState(false);
-const [showSuccess, setShowSuccess] = useState(false);
-const [showAddMore, setShowAddMore] = useState(false);
-const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-const [productToRemove, setProductToRemove] = useState(null);
-const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-const [updateSuccess, setUpdateSuccess] = useState('');
-const [showPdfSuccess, setShowPdfSuccess] = useState(false);
+  // Store configuration
+  const [storeTheme, setStoreTheme] = useState(() => {
+    const saved = localStorage.getItem('managerStoreTheme');
+    return saved || 'dark';
+  });
 
-// Product name validation and suggestions
-const [productSuggestions, setProductSuggestions] = useState([]);
-const [showProductSuggestions, setShowProductSuggestions] = useState(false);
-const [productNameError, setProductNameError] = useState('');
-const [isValidatingProduct, setIsValidatingProduct] = useState(false);
+  const [storeDetails, setStoreDetails] = useState({
+    name: "StoreZen"
+  });
 
-// Category validation and suggestions
-const [categorySuggestions, setCategorySuggestions] = useState([]);
-const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
-const [availableCategories, setAvailableCategories] = useState([]);
+  // =============================================================================
+  // API FUNCTIONS
+  // =============================================================================
 
-// Store theme configuration state (for database storage)
-const [storeTheme, setStoreTheme] = useState(() => {
-const saved = localStorage.getItem('managerStoreTheme');
-return saved || 'dark';
-});
-
-// Get current theme styles from global context
-const theme = getThemeStyles(currentTheme);
-
-// Store details state (simplified - main data is in managerProfile.storeSettings)
-const [storeDetails, setStoreDetails] = useState({
-name: "StoreZen"
-});
-
-// Manager profile state
-const [managerProfile, setManagerProfile] = useState({
-id: null,
-name: "Store Manager",
-storeAddress: "",
-email: "",
-contact: "",
-whatsappNumber: "",
-lowStockThreshold: 10,
-whatsappAlertsEnabled: true,
-storeSettings: {
-storeName: "StoreZen",
-storeTheme: "dark",
-currency: "₹",
-timezone: "Asia/Kolkata"
-}
-});
-
-// Loading states
-const [profileLoading, setProfileLoading] = useState(false);
-
-// Function to fetch manager profile from MongoDB
-const fetchManagerProfile = async () => {
-setProfileLoading(true);
-
-try {
-const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.profile}`);
-if (response.ok) {
-const data = await response.json();
-if (data.success) {
-const manager = data.manager;
+  /** Fetch manager profile from Node.js backend */
+  const fetchManagerProfile = async () => {
+    setProfileLoading(true);
+    
+    try {
+      const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.profile}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const manager = data.manager;
 setManagerProfile({
     id: manager.id,
     name: manager.name,
@@ -522,13 +519,11 @@ const fetchStockData = async () => {
 setStockLoading(true);
 setStockError(null);
 
-try {
-const response = await fetch(`${API_CONFIG.DJANGO_SERVER}${API_CONFIG.endpoints.django.products}`);
-if (!response.ok) {
-throw new Error('Failed to fetch stock data');
-}
-
-const data = await response.json();
+    try {
+      const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.products));
+      if (!response.ok) {
+        throw new Error('Failed to fetch stock data');
+      }const data = await response.json();
 // Transform data to show only required fields
 const transformedData = data.map(product => ({
 id: product.id,
@@ -691,7 +686,7 @@ setLoading(true);
 setProductNameError('');
 
 try {
-const response = await fetch(`${API_CONFIG.DJANGO_SERVER}${API_CONFIG.endpoints.django.products}`, {
+const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.managerProducts), {
 method: 'POST',
 headers: {
 'Content-Type': 'application/json',
@@ -934,7 +929,7 @@ const downloadStockPDF = async () => {
         console.log('Starting PDF download...');
         setStockLoading(true);
         
-        const response = await fetch('http://127.0.0.1:8000/api/manager/download-stock-pdf/', {
+        const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.stockPdf), {
             method: 'GET',
             headers: {
                 'Accept': 'application/pdf',
@@ -1089,221 +1084,122 @@ alert(`❌ Failed to save theme: ${result.message}`);
 };
 
 const renderInventoryModal = () => {
-if (!showInventoryOptions) return null;
+  if (!showInventoryOptions) return null;
 
-return (
-<div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-<div className="relative w-full max-w-md">
-{/* Floating particles background - reduced for mobile */}
-<div className="absolute inset-0 overflow-hidden rounded-2xl">
-<div className="absolute top-4 left-4 w-2 h-2 bg-blue-400 rounded-full animate-ping opacity-20"></div>
-<div className="absolute top-8 right-6 w-1 h-1 bg-purple-400 rounded-full animate-pulse opacity-30"></div>
-<div className="absolute bottom-6 left-8 w-1 h-1 bg-green-400 rounded-full animate-bounce opacity-25"></div>
-<div className="absolute bottom-4 right-4 w-2 h-2 bg-pink-400 rounded-full animate-ping opacity-15"></div>
-</div>
+  return (
+    <GlassmorphismModal
+      isOpen={showInventoryOptions}
+      onClose={() => setShowInventoryOptions(false)}
+      title="Inventory Center"
+      subtitle="Choose your action"
+      theme={theme}
+      size="md"
+    >
+      {/* Add Products Card */}
+      <ActionCard
+        icon={Plus}
+        title="Add Products"
+        description="Expand inventory"
+        onClick={() => {
+          setShowInventoryOptions(false);
+          setShowAddProduct(true);
+          fetchStockData();
+        }}
+        variant="success"
+        theme={ThemeCollections.inventory.cyan}
+      />
 
-{/* Main modal container with glassmorphism */}
-<div className={`relative rounded-2xl p-4 sm:p-6 w-full shadow-2xl backdrop-blur-xl border border-white/20 ${theme.cardBg}/90 max-h-[90vh] overflow-y-auto`}
-     style={{
-       background: 'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
-       boxShadow: '0 25px 45px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.2)'
-     }}>
-     
-{/* Animated header with holographic effect */}
-<div className="text-center mb-4 sm:mb-6">
-<div className="relative inline-block">
-<h3 className={`text-xl sm:text-2xl font-bold ${theme.text} bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent`}>
-Inventory Center
-</h3>
-<div className="absolute -inset-1 bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 rounded-lg blur opacity-20"></div>
-</div>
-<p className={`mt-1 ${theme.textSecondary} text-xs sm:text-sm opacity-80`}>
-Choose your action
-</p>
-</div>
+      {/* Stock Update Card */}
+      <ActionCard
+        icon={Settings}
+        title="Stock Update"
+        description="Modify quantities"
+        onClick={() => {
+          setShowInventoryOptions(false);
+          setShowUpdateStock(true);
+          setUpdateStockSearchQuery('');
+          fetchStockData();
+        }}
+        variant="primary"
+        theme={ThemeCollections.inventory.primary}
+      />
 
-{/* Interactive action cards */}
-<div className="space-y-3">
-{/* Add Products Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-500 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-white/10`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-green-500/10 transition-all duration-300"
-onClick={() => {
-setShowInventoryOptions(false);
-setShowAddProduct(true);
-fetchStockData();
-}}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-all duration-300">
-<Plus className="h-4 w-4 text-green-400 group-hover:rotate-90 transition-transform duration-300" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm ${theme.text} group-hover:text-green-400 transition-colors duration-300`}>Add Products</h4>
-<p className={`text-xs ${theme.textSecondary} opacity-70 truncate`}>Expand inventory</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
+      {/* Remove Products Card */}
+      <ActionCard
+        icon={AlertTriangle}
+        title="Remove Products"
+        description="Delete items"
+        onClick={() => {
+          setShowInventoryOptions(false);
+          setShowRemoveProduct(true);
+          setRemoveProductSearchQuery('');
+          fetchStockData();
+        }}
+        variant="warning"
+        theme={ThemeCollections.finance.rose}
+      />
 
-{/* Stock Update Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-blue-400 via-cyan-500 to-sky-500 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-white/10`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-blue-500/10 transition-all duration-300"
-onClick={() => {
-setShowInventoryOptions(false);
-setShowUpdateStock(true);
-setUpdateStockSearchQuery('');
-fetchStockData();
-}}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-blue-500/20 rounded-lg group-hover:bg-blue-500/30 transition-all duration-300">
-<Settings className="h-4 w-4 text-blue-400 group-hover:rotate-90 transition-transform duration-300" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm ${theme.text} group-hover:text-blue-400 transition-colors duration-300`}>Stock Update</h4>
-<p className={`text-xs ${theme.textSecondary} opacity-70 truncate`}>Modify quantities</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
+      {/* Danger Zone Separator */}
+      <div className="relative my-3">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-red-500/30"></div>
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <GradientBadge variant="danger" size="sm">
+            Danger
+          </GradientBadge>
+        </div>
+      </div>
 
-{/* Remove Products Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-orange-400 via-red-500 to-pink-500 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-white/10`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-red-500/10 transition-all duration-300"
-onClick={() => {
-setShowInventoryOptions(false);
-setShowRemoveProduct(true);
-setRemoveProductSearchQuery('');
-fetchStockData();
-}}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-red-500/20 rounded-lg group-hover:bg-red-500/30 transition-all duration-300">
-<AlertTriangle className="h-4 w-4 text-red-400" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm ${theme.text} group-hover:text-red-400 transition-colors duration-300`}>Remove Products</h4>
-<p className={`text-xs ${theme.textSecondary} opacity-70 truncate`}>Delete items</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
+      {/* Clear All Products Card */}
+      <ActionCard
+        icon={AlertTriangle}
+        title="Clear All Products"
+        description="⚠️ Cannot be undone"
+        onClick={() => {
+          setShowInventoryOptions(false);
+          setShowClearAllConfirm(true);
+        }}
+        variant="danger"
+        theme={ThemeCollections.finance.rose}
+      />
 
-{/* Danger Zone Separator */}
-<div className="relative my-3">
-<div className="absolute inset-0 flex items-center">
-<div className="w-full border-t border-red-500/30"></div>
-</div>
-<div className="relative flex justify-center text-xs">
-<span className={`bg-red-500/20 px-2 py-1 rounded-full text-red-400 font-medium backdrop-blur-sm`}>
-Danger
-</span>
-</div>
-</div>
+      {/* Advanced Features Separator */}
+      <div className="relative my-3">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-purple-500/30"></div>
+        </div>
+        <div className="relative flex justify-center text-xs">
+          <GradientBadge variant="secondary" size="sm">
+            Advanced
+          </GradientBadge>
+        </div>
+      </div>
 
-{/* Clear All Products Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-red-500/20`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-red-500/10 transition-all duration-300"
-onClick={() => {
-setShowInventoryOptions(false);
-setShowClearAllConfirm(true);
-}}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-red-600/20 rounded-lg group-hover:bg-red-600/30 transition-all duration-300">
-<AlertTriangle className="h-4 w-4 text-red-500" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm text-red-400 group-hover:text-red-300 transition-colors duration-300`}>Clear All Products</h4>
-<p className={`text-xs text-red-500/70 opacity-70 truncate`}>⚠️ Cannot be undone</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
+      {/* WhatsApp Alerts Card */}
+      <ActionCard
+        icon={MessageCircle}
+        title="WhatsApp Alerts"
+        description="Smart notifications"
+        onClick={() => {
+          setShowInventoryOptions(false);
+          setShowOutOfStockSettings(true);
+        }}
+        variant="warning"
+        theme={ThemeCollections.analytics.emerald}
+      />
 
-{/* Advanced Features Separator */}
-<div className="relative my-3">
-<div className="absolute inset-0 flex items-center">
-<div className="w-full border-t border-purple-500/30"></div>
-</div>
-<div className="relative flex justify-center text-xs">
-<span className={`bg-purple-500/20 px-2 py-1 rounded-full text-purple-400 font-medium backdrop-blur-sm`}>
-Advanced
-</span>
-</div>
-</div>
-
-{/* WhatsApp Alerts Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-orange-400 via-amber-500 to-yellow-500 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-white/10`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-orange-500/10 transition-all duration-300"
-onClick={() => {
-setShowInventoryOptions(false);
-setShowOutOfStockSettings(true);
-}}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-orange-500/20 rounded-lg group-hover:bg-orange-500/30 transition-all duration-300">
-<MessageCircle className="h-4 w-4 text-orange-400" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm ${theme.text} group-hover:text-orange-400 transition-colors duration-300`}>WhatsApp Alerts</h4>
-<p className={`text-xs ${theme.textSecondary} opacity-70 truncate`}>Smart notifications</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
-
-{/* High Demand Items Card */}
-<div className="group relative overflow-hidden rounded-xl p-1 bg-gradient-to-r from-purple-400 via-violet-500 to-indigo-500 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02]">
-<div className={`rounded-lg p-3 ${theme.cardBg} h-full backdrop-blur-sm border border-white/10`}>
-<Button 
-className="w-full bg-transparent text-left p-0 h-auto justify-start group-hover:bg-purple-500/10 transition-all duration-300"
-onClick={() => setShowInventoryOptions(false)}
->
-<div className="flex items-center space-x-3 w-full">
-<div className="p-2 bg-purple-500/20 rounded-lg group-hover:bg-purple-500/30 transition-all duration-300">
-<TrendingUp className="h-4 w-4 text-purple-400" />
-</div>
-<div className="flex-1 min-w-0">
-<h4 className={`font-semibold text-sm ${theme.text} group-hover:text-purple-400 transition-colors duration-300`}>High Demand Items</h4>
-<p className={`text-xs ${theme.textSecondary} opacity-70 truncate`}>Analytics & insights</p>
-</div>
-</div>
-</Button>
-</div>
-</div>
-</div>
-
-{/* Close button with neon effect */}
-<div className="mt-4 text-center">
-<Button 
-variant="outline" 
-className={`px-4 py-2 rounded-xl backdrop-blur-sm border border-white/30 ${theme.text} hover:bg-white/10 hover:border-white/50 transition-all duration-300 text-sm`}
-onClick={() => setShowInventoryOptions(false)}
->
-<ArrowLeft className="mr-1 h-3 w-3" />
-Close
-</Button>
-</div>
-</div>
-</div>
-</div>
-);
+      {/* High Demand Items Card */}
+      <ActionCard
+        icon={TrendingUp}
+        title="High Demand Items"
+        description="Analytics & insights"
+        onClick={() => setShowInventoryOptions(false)}
+        variant="secondary"
+        theme={ThemeCollections.analytics.purple}
+      />
+    </GlassmorphismModal>
+  );
 };
 
 const renderAddProductModal = () => {
@@ -1330,54 +1226,53 @@ return (
 );
 }
 
-// Add more confirmation modal
-if (showAddMore) {
-return (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-<div className={`rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border text-center`}>
-<h3 className={`text-2xl font-bold mb-6 ${theme.text}`}>
-    Add Another Product?
-</h3>
-<p className={`mb-8 ${theme.textSecondary}`}>
-    Would you like to add more products to your inventory?
-</p>
-<div className="flex space-x-4">
-    <Button 
-    className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg rounded-lg"
-    onClick={() => {
-        setShowAddMore(false);
-        // Reset all validation states
-        setProductNameError('');
-        setProductSuggestions([]);
-        setShowProductSuggestions(false);
-        setCategorySuggestions([]);
-        setShowCategorySuggestions(false);
-    }}
-    >
-    Yes, Add More
-    </Button>
-    <Button 
-    variant="outline" 
-    className={`flex-1 rounded-lg backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10`}
-    onClick={() => {
-        setShowAddMore(false);
-        setShowAddProduct(false);
-        setShowInventoryOptions(true);
-        // Reset all validation states
-        setProductNameError('');
-        setProductSuggestions([]);
-        setShowProductSuggestions(false);
-        setCategorySuggestions([]);
-        setShowCategorySuggestions(false);
-    }}
-    >
-    Done
-    </Button>
-</div>
-</div>
-</div>
-);
-}
+  // Add more confirmation modal
+  if (showAddMore) {
+    return (
+      <GlassmorphismModal
+        isOpen={showAddMore}
+        onClose={() => setShowAddMore(false)}
+        title="Add Another Product?"
+        subtitle="Would you like to add more products to your inventory?"
+        theme={theme}
+        size="sm"
+        showCloseButton={false}
+      >
+        <div className="flex space-x-4">
+          <GradientButton 
+            variant="success"
+            className="flex-1"
+            onClick={() => {
+              setShowAddMore(false);
+              setProductNameError('');
+              setProductSuggestions([]);
+              setShowProductSuggestions(false);
+              setCategorySuggestions([]);
+              setShowCategorySuggestions(false);
+            }}
+          >
+            Yes, Add More
+          </GradientButton>
+          <GradientButton 
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              setShowAddMore(false);
+              setShowAddProduct(false);
+              setShowInventoryOptions(true);
+              setProductNameError('');
+              setProductSuggestions([]);
+              setShowProductSuggestions(false);
+              setCategorySuggestions([]);
+              setShowCategorySuggestions(false);
+            }}
+          >
+            Done
+          </GradientButton>
+        </div>
+      </GlassmorphismModal>
+    );
+  }
 
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1572,30 +1467,31 @@ placeholder="0"
 </div>
 </div>
 
-{/* Action Buttons */}
-<div className="flex space-x-4 mt-8 pt-6 border-t border-gray-200">
-<Button 
-className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-onClick={addProduct}
-disabled={loading || !!productNameError || !newProduct.name.trim() || !newProduct.category.trim() || !newProduct.price || !newProduct.stock}
->
-{loading ? (
-<div className="flex items-center justify-center">
-<div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-Adding Product...
-</div>
-) : (
-'Add Product'
-)}
-</Button>
-<Button 
-variant="outline" 
-className={`flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-200 ${theme.border} ${theme.text} hover:bg-gray-50`}
-onClick={handleCancelAddProduct}
->
-Cancel
-</Button>
-</div>
+      {/* Action Buttons */}
+      <div className="flex space-x-4 mt-8 pt-6 border-t border-gray-200">
+        <GradientButton 
+          variant="primary"
+          className="flex-1 py-3 px-6"
+          onClick={addProduct}
+          disabled={loading || !!productNameError || !newProduct.name.trim() || !newProduct.category.trim() || !newProduct.price || !newProduct.stock}
+        >
+          {loading ? (
+            <div className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+              Adding Product...
+            </div>
+          ) : (
+            'Add Product'
+          )}
+        </GradientButton>
+        <GradientButton 
+          variant="outline"
+          className="flex-1 py-3 px-6"
+          onClick={handleCancelAddProduct}
+        >
+          Cancel
+        </GradientButton>
+      </div>
 </div>
 </div>
 );
@@ -1670,7 +1566,7 @@ Found {filteredUpdateStockData.length} product(s) matching "{updateStockSearchQu
 <div className={`${theme.text}`}>Product Name</div>
 <div className={`${theme.text}`}>Category</div>
 <div className={`${theme.text}`}>Current Stock</div>
-<div className={`${theme.text}`}>Actions</div>
+<div className={`${theme.text}`}>Update</div>
 </div>
 
 {filteredUpdateStockData.map((product) => (
@@ -1705,9 +1601,10 @@ min="0"
 className={`w-16 px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
 id={`stock-${product.id}`}
 />
-<Button
+<GradientButton
 size="sm"
-className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg rounded px-3 py-1 text-sm flex items-center"
+variant="primary"
+className="px-3 py-1 text-sm"
 onClick={() => {
     const newStockValue = document.getElementById(`stock-${product.id}`).value;
     updateStock(product.id, newStockValue);
@@ -1719,7 +1616,7 @@ disabled={loading}
 ) : (
     'Update'
 )}
-</Button>
+</GradientButton>
 </div>
 </div>
 </div>
@@ -1809,48 +1706,58 @@ setShowInventoryOptions(true);
 const renderRemoveProductModal = () => {
 if (!showRemoveProduct) return null;
 
-// Confirmation modal for removal
-if (showRemoveConfirm && productToRemove) {
-return (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-<div className={`rounded-xl p-4 md:p-8 w-full max-w-sm md:max-w-md shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border text-center`}>
-<div className="text-4xl md:text-6xl mb-4">
-<svg className="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-</svg>
-</div>
-<h3 className={`text-xl md:text-2xl font-bold mb-4 ${theme.text}`}>
-    Remove Product?
-</h3>
-<p className={`mb-2 ${theme.text} font-medium`}>
-    {productToRemove.name}
-</p>
-<p className={`mb-8 ${theme.textSecondary} text-sm md:text-base`}>
-    This action cannot be undone. The product will be permanently removed from your inventory.
-</p>
-<div className="flex space-x-4">
-    <Button 
-    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg rounded-lg py-3"
-    onClick={() => removeProduct(productToRemove.id)}
-    disabled={loading}
-    >
-    {loading ? 'Removing...' : 'Yes, Remove'}
-    </Button>
-    <Button 
-    variant="outline" 
-    className={`flex-1 rounded-lg backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10 py-3`}
-    onClick={() => {
-        setShowRemoveConfirm(false);
-        setProductToRemove(null);
-    }}
-    >
-    ← Back
-    </Button>
-</div>
-</div>
-</div>
-);
-}
+  // Confirmation modal for removal
+  if (showRemoveConfirm && productToRemove) {
+    return (
+      <GlassmorphismModal
+        isOpen={showRemoveConfirm}
+        onClose={() => {
+          setShowRemoveConfirm(false);
+          setProductToRemove(null);
+        }}
+        title="Remove Product?"
+        subtitle={
+          <div>
+            <p className={`mb-2 ${theme.text} font-medium`}>
+              {productToRemove.name}
+            </p>
+            <p className={`${theme.textSecondary} text-sm`}>
+              This action cannot be undone. The product will be permanently removed from your inventory.
+            </p>
+          </div>
+        }
+        theme={theme}
+        size="sm"
+        showCloseButton={false}
+      >
+        <div className="text-4xl md:text-6xl mb-4">
+          <svg className="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <div className="flex space-x-4">
+          <GradientButton 
+            variant="danger"
+            className="flex-1 py-3"
+            onClick={() => removeProduct(productToRemove.id)}
+            disabled={loading}
+          >
+            {loading ? 'Removing...' : 'Yes, Remove'}
+          </GradientButton>
+          <GradientButton 
+            variant="outline"
+            className="flex-1 py-3"
+            onClick={() => {
+              setShowRemoveConfirm(false);
+              setProductToRemove(null);
+            }}
+          >
+            ← Back
+          </GradientButton>
+        </div>
+      </GlassmorphismModal>
+    );
+  }
 
 return (
 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -2030,47 +1937,51 @@ setShowInventoryOptions(true);
 };
 
 const renderClearAllProductsModal = () => {
-if (!showClearAllConfirm) return null;
+  if (!showClearAllConfirm) return null;
 
-return (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-<div className={`rounded-xl p-4 md:p-8 w-full max-w-sm md:max-w-md shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border text-center`}>
-<div className="text-4xl md:text-6xl mb-4">
-<svg className="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-</svg>
-</div>
-<h3 className={`text-xl md:text-2xl font-bold mb-4 ${theme.text}`}>
-Clear All Products?
-</h3>
-<p className={`mb-8 ${theme.textSecondary} text-sm md:text-base`}>
-This will permanently delete ALL products from your inventory. This action cannot be undone.
-</p>
-<div className="flex space-x-4">
-<Button 
-className="flex-1 bg-gradient-to-r from-red-500 to-red-600 hover:shadow-lg rounded-lg py-3"
-onClick={() => {
-clearAllProducts();
-setShowClearAllConfirm(false);
-}}
-disabled={loading}
->
-{loading ? 'Clearing...' : 'Yes, Clear All'}
-</Button>
-<Button 
-variant="outline" 
-className={`flex-1 rounded-lg backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10 py-3`}
-onClick={() => {
-setShowClearAllConfirm(false);
-setShowInventoryOptions(true);
-}}
->
-Cancel
-</Button>
-</div>
-</div>
-</div>
-);
+  return (
+    <GlassmorphismModal
+      isOpen={showClearAllConfirm}
+      onClose={() => {
+        setShowClearAllConfirm(false);
+        setShowInventoryOptions(true);
+      }}
+      title="Clear All Products?"
+      subtitle="This will permanently delete ALL products from your inventory. This action cannot be undone."
+      theme={theme}
+      size="sm"
+      showCloseButton={false}
+    >
+      <div className="text-4xl md:text-6xl mb-4">
+        <svg className="w-16 h-16 mx-auto text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+        </svg>
+      </div>
+      <div className="flex space-x-4">
+        <GradientButton 
+          variant="danger"
+          className="flex-1 py-3"
+          onClick={() => {
+            clearAllProducts();
+            setShowClearAllConfirm(false);
+          }}
+          disabled={loading}
+        >
+          {loading ? 'Clearing...' : 'Yes, Clear All'}
+        </GradientButton>
+        <GradientButton 
+          variant="outline"
+          className="flex-1 py-3"
+          onClick={() => {
+            setShowClearAllConfirm(false);
+            setShowInventoryOptions(true);
+          }}
+        >
+          Cancel
+        </GradientButton>
+      </div>
+    </GlassmorphismModal>
+  );
 };
 
 const renderStockViewModal = () => {
@@ -2084,13 +1995,13 @@ return (
             <h3 className={`text-xl md:text-2xl font-bold ${theme.text}`}>
                 Stock Inventory Overview
             </h3>
-            <Button 
-                variant="outline" 
-                className={`rounded-lg ${theme.border} ${theme.text} hover:bg-purple-500/10 p-2`}
+            <GradientButton 
+                variant="outline"
+                className="p-2"
                 onClick={() => setShowStockView(false)}
             >
                 ← Back
-            </Button>
+            </GradientButton>
         </div>
 
         {/* Action Buttons Section */}
@@ -2109,15 +2020,17 @@ return (
                 
                 {/* Action Buttons */}
                 <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3 w-full md:w-auto">
-                    <Button 
-                        className="bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg rounded-lg w-full md:w-auto px-4 py-2"
+                    <GradientButton 
+                        variant="success"
+                        className="w-full md:w-auto px-4 py-2"
                         onClick={downloadStockPDF}
                         disabled={stockLoading}
                     >
                         📄 Download PDF
-                    </Button>
-                    <Button 
-                        className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg rounded-lg w-full md:w-auto px-4 py-2 flex items-center justify-center"
+                    </GradientButton>
+                    <GradientButton 
+                        variant="primary"
+                        className="w-full md:w-auto px-4 py-2 flex items-center justify-center"
                         onClick={() => fetchStockData()}
                         disabled={stockLoading}
                     >
@@ -2135,7 +2048,7 @@ return (
                             />
                         </svg>
                         {stockLoading ? 'Refreshing...' : 'Refresh'}
-                    </Button>
+                    </GradientButton>
                 </div>
             </div>
         </div>
@@ -2399,47 +2312,44 @@ onClick={() => setShowOutOfStockSettings(false)}
 };
 
 const renderReportModal = () => {
-if (!showReportOptions) return null;
+  if (!showReportOptions) return null;
 
-return (
-<div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-<div className={`rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
-<h3 className={`text-2xl font-bold mb-6 text-center ${theme.text}`}>
-Select Report Type
-</h3>
-<div className="space-y-4">
-<Button 
-className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:shadow-lg rounded-xl py-3"
-onClick={() => setShowReportOptions(false)}
->
-<Clock className="mr-2 h-5 w-5" />
-Today's Report
-</Button>
-<Button 
-className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:shadow-lg rounded-xl py-3"
-onClick={() => setShowReportOptions(false)}
->
-<Calendar className="mr-2 h-5 w-5" />
-Monthly Report
-</Button>
-<Button 
-className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:shadow-lg rounded-xl py-3"
-onClick={() => setShowReportOptions(false)}
->
-<BarChart className="mr-2 h-5 w-5" />
-Yearly Report
-</Button>
-</div>
-<Button 
-variant="outline" 
-className={`w-full mt-6 rounded-xl backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10`}
-onClick={() => setShowReportOptions(false)}
->
-Cancel
-</Button>
-</div>
-</div>
-);
+  return (
+    <GlassmorphismModal
+      isOpen={showReportOptions}
+      onClose={() => setShowReportOptions(false)}
+      title="Select Report Type"
+      theme={theme}
+      size="sm"
+    >
+      <div className="space-y-4">
+        <ActionCard
+          icon={Clock}
+          title="Today's Report"
+          description="View today's sales and inventory"
+          onClick={() => setShowReportOptions(false)}
+          variant="primary"
+          theme={ThemeCollections.analytics.emerald}
+        />
+        <ActionCard
+          icon={Calendar}
+          title="Monthly Report"
+          description="Comprehensive monthly analysis"
+          onClick={() => setShowReportOptions(false)}
+          variant="secondary"
+          theme={ThemeCollections.analytics.purple}
+        />
+        <ActionCard
+          icon={BarChart}
+          title="Yearly Report"
+          description="Annual performance overview"
+          onClick={() => setShowReportOptions(false)}
+          variant="success"
+          theme={ThemeCollections.finance.amber}
+        />
+      </div>
+    </GlassmorphismModal>
+  );
 };
 
 const renderStoreSettingsModal = () => {

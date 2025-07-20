@@ -1,12 +1,24 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
+
+// Styles
+import './index.css';                    // Global CSS styles
+import 'react-toastify/ReactToastify.css'; // Toast notification styles
+
+// Main App Component
 import App from './App';
+
+// Performance monitoring
 import reportWebVitals from './reportWebVitals';
-import 'react-toastify/ReactToastify.css';
 
+// =============================================================================
+// APPLICATION ENTRY POINT
+// =============================================================================
 
-// React 18 root rendering - Main entry point for the application
+/**
+ * React 18 root rendering setup
+ * StrictMode helps identify potential problems in development
+ */
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
@@ -14,6 +26,12 @@ root.render(
   </React.StrictMode>
 );
 
+// =============================================================================
+// PERFORMANCE MONITORING (Optional)
+// =============================================================================
 
-// Performance monitoring - optional web vitals reporting
+/**
+ * Web Vitals measurement for performance analysis
+ * Can be configured to send metrics to analytics endpoint
+ */
 reportWebVitals();

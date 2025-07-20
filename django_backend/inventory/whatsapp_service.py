@@ -60,26 +60,40 @@ Threshold: *{threshold}*
     def check_and_send_alerts(self, manager_phone, threshold):
         """
         Check all products for low stock and send alerts
-        Only sends alert once per product until stock is replenished above threshold
+        Intelligent spam prevention: 
+        - Sends alert when stock first goes below threshold
+        - After restocking above threshold, allows new alert when it goes below again
+        - Prevents multiple alerts for same low stock episode
         """
         if not manager_phone:
             logger.warning("Manager phone number not provided")
             return
         
         try:
+            # First, mark alerts as resolved for products that are now above threshold
+            resolved_count = LowStockAlert.objects.filter(
+                product__stock__gt=threshold,
+                is_resolved=False
+            ).update(is_resolved=True)
+            
+            if resolved_count > 0:
+                logger.info(f"Marked {resolved_count} alerts as resolved (stock replenished)")
+            
             # Get all products below threshold
             low_stock_products = Product.objects.filter(stock__lte=threshold)
             
             alerts_sent = 0
             for product in low_stock_products:
-                # Check if alert already sent for this product
-                existing_alert = LowStockAlert.objects.filter(
+                # Check if there's an unresolved alert for this product at current threshold
+                existing_unresolved_alert = LowStockAlert.objects.filter(
                     product=product,
                     threshold_value=threshold,
                     is_resolved=False
                 ).first()
                 
-                if not existing_alert:
+                # Only send alert if no unresolved alert exists
+                # This means: either first time below threshold, or was restocked and now below again
+                if not existing_unresolved_alert:
                     # Send alert and create record
                     success = self.send_low_stock_alert(
                         manager_phone, 
@@ -93,19 +107,45 @@ Threshold: *{threshold}*
                             product=product,
                             threshold_value=threshold,
                             stock_at_alert=product.stock,
-                            manager_phone=manager_phone
+                            manager_phone=manager_phone,
+                            is_resolved=False
                         )
                         alerts_sent += 1
+                        logger.info(f"New alert sent for {product.name} (stock: {product.stock})")
+                    else:
+                        logger.warning(f"Failed to send alert for {product.name}")
+                else:
+                    logger.debug(f"Skipping {product.name} - alert already active (stock: {product.stock})")
             
-            # Mark alerts as resolved for products that are now above threshold
-            LowStockAlert.objects.filter(
-                product__stock__gt=threshold,
-                is_resolved=False
-            ).update(is_resolved=True)
-            
-            logger.info(f"Sent {alerts_sent} low stock alerts")
+            logger.info(f"Sent {alerts_sent} new low stock alerts")
             return alerts_sent
             
         except Exception as e:
             logger.error(f"Error in check_and_send_alerts: {e}")
             return 0
+
+    def get_alert_status_for_product(self, product_name):
+        """
+        Helper method to check alert status for a specific product
+        """
+        try:
+            product = Product.objects.get(name=product_name)
+            unresolved_alerts = LowStockAlert.objects.filter(
+                product=product,
+                is_resolved=False
+            ).count()
+            
+            resolved_alerts = LowStockAlert.objects.filter(
+                product=product,
+                is_resolved=True
+            ).count()
+            
+            return {
+                'product_name': product.name,
+                'current_stock': product.stock,
+                'unresolved_alerts': unresolved_alerts,
+                'resolved_alerts': resolved_alerts,
+                'can_send_new_alert': unresolved_alerts == 0
+            }
+        except Product.DoesNotExist:
+            return {'error': 'Product not found'}

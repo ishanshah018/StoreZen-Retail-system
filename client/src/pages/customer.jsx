@@ -1,138 +1,178 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+
+// UI Components
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+
+// Theme Components
 import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji } from "../components/theme";
+import { GradientButton, GradientBadge } from "../components/theme";
+
+// Icons
 import {
-User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart,Send,Store,LogOut,
-ArrowLeft, Loader2, AlertCircle, Package, Search
+  User, ShoppingCart, MessageCircle, Receipt, FileText, Ticket, 
+  Coins, BarChart, Star, Heart, Send, Store, LogOut, ArrowLeft, 
+  Loader2, AlertCircle, Package, Search
 } from "lucide-react";
 
-// Trie Data Structure for Search
+// Utilities and API
+import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
+
+// =============================================================================
+// UTILITY CLASSES - TRIE DATA STRUCTURE FOR PRODUCT SEARCH
+// =============================================================================
+
+/** Trie node for efficient product search implementation */
 class TrieNode {
-constructor() {
-this.children = {};
-this.isEndOfWord = false;
-this.products = []; // Store products that match this prefix
-}
+  constructor() {
+    this.children = {};     // Character mapping to child nodes
+    this.isEndOfWord = false; // Marks complete word
+    this.products = [];     // Products that match this prefix
+  }
 }
 
+/** Trie data structure for O(m) product search complexity */
 class Trie {
-constructor() {
-this.root = new TrieNode();
+  constructor() {
+    this.root = new TrieNode();
+  }
+
+  /** Insert product into trie by word */
+  insert(word, product) {
+    let node = this.root;
+    const normalizedWord = word.toLowerCase();
+
+    for (let char of normalizedWord) {
+      if (!node.children[char]) {
+        node.children[char] = new TrieNode();
+      }
+      node = node.children[char];
+      node.products.push(product);
+    }
+    node.isEndOfWord = true;
+  }
+
+  /** Search products by prefix */
+  search(prefix) {
+    let node = this.root;
+    const normalizedPrefix = prefix.toLowerCase();
+
+    for (let char of normalizedPrefix) {
+      if (!node.children[char]) {
+        return [];
+      }
+      node = node.children[char];
+    }
+
+    // Remove duplicates using Set
+    const uniqueProducts = new Set();
+    node.products.forEach(product => {
+      uniqueProducts.add(JSON.stringify(product));
+    });
+
+    return Array.from(uniqueProducts).map(productStr => JSON.parse(productStr));
+  }
+
+  /** Build trie from products array */
+  buildTrie(products) {
+    this.root = new TrieNode(); // Reset trie
+    products.forEach(product => {
+      this.insert(product.name, product);        // Insert product name
+      this.insert(product.category, product);    // Insert category
+      // Insert individual words from product name
+      product.name.split(' ').forEach(word => {
+        if (word.length > 1) { // Skip single characters
+          this.insert(word, product);
+        }
+      });
+    });
+  }
 }
 
-insert(word, product) {
-let node = this.root;
-const normalizedWord = word.toLowerCase();
-
-for (let char of normalizedWord) {
-if (!node.children[char]) {
-node.children[char] = new TrieNode();
-}
-node = node.children[char];
-node.products.push(product);
-}
-node.isEndOfWord = true;
-}
-
-search(prefix) {
-let node = this.root;
-const normalizedPrefix = prefix.toLowerCase();
-
-for (let char of normalizedPrefix) {
-if (!node.children[char]) {
-return [];
-}
-node = node.children[char];
-}
-
-// Remove duplicates using Set
-const uniqueProducts = new Set();
-node.products.forEach(product => {
-uniqueProducts.add(JSON.stringify(product));
-});
-
-return Array.from(uniqueProducts).map(productStr => JSON.parse(productStr));
-}
-
-buildTrie(products) {
-this.root = new TrieNode(); // Reset trie
-products.forEach(product => {
-// Insert product name
-this.insert(product.name, product);
-// Insert category
-this.insert(product.category, product);
-// Insert individual words from product name
-product.name.split(' ').forEach(word => {
-if (word.length > 1) { // Skip single characters
-this.insert(word, product);
-}
-});
-});
-}
-}
+// =============================================================================
+// MAIN CUSTOMER COMPONENT
+// =============================================================================
 
 const Customer = () => {
-// Customer name state
-const [customerName, setCustomerName] = useState("Guest");
+  // Navigation and theme
+  const navigate = useNavigate();
+  const { currentTheme } = useTheme();
 
-// Products state
-const [products, setProducts] = useState([]);
-const [filteredProducts, setFilteredProducts] = useState([]);
-const [categories, setCategories] = useState([]);
-const [selectedCategory, setSelectedCategory] = useState("All");
-const [searchQuery, setSearchQuery] = useState("");
-const [showProducts, setShowProducts] = useState(false);
-const [loading, setLoading] = useState(false);
-const [error, setError] = useState("");
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
 
-// Get theme from context
-const { currentTheme } = useTheme();
-const navigate = useNavigate();
+  // Customer data
+  const [customerName, setCustomerName] = useState("Guest");
 
-// Initialize Trie for search
-const [trie] = useState(new Trie());
+  // Product management
+  const [products, setProducts] = useState([]);             // All products
+  const [filteredProducts, setFilteredProducts] = useState([]); // Filtered products
+  const [categories, setCategories] = useState([]);        // Available categories
+  const [selectedCategory, setSelectedCategory] = useState("All"); // Selected filter
 
-// Load customer name on component mount
-useEffect(() => {
-const savedCustomerName = localStorage.getItem('customerName') || "Guest";
-setCustomerName(savedCustomerName);
-}, []);
+  // Search functionality
+  const [searchQuery, setSearchQuery] = useState("");      // Search input
+  const [trie] = useState(new Trie());                    // Search index
 
-// Function to fetch categories
-const fetchCategories = async () => {
-try {
-const response = await fetch('http://127.0.0.1:8000/api/customer/categories/');
-if (!response.ok) throw new Error('Failed to fetch categories');
-const data = await response.json();
-setCategories(data);
-} catch (err) {
-console.error('Error fetching categories:', err);
-}
-};
+  // UI states
+  const [showProducts, setShowProducts] = useState(false); // Product view toggle
+  const [loading, setLoading] = useState(false);          // Loading state
+  const [error, setError] = useState("");                 // Error message
 
-// Function to fetch products
-const fetchProducts = async (category = "") => {
-setLoading(true);
-setError("");
-try {
-const url = category && category !== "All" 
-? `http://127.0.0.1:8000/api/customer/products/?category=${encodeURIComponent(category)}`
-: 'http://127.0.0.1:8000/api/customer/products/';
-const response = await fetch(url);
-if (!response.ok) {
-throw new Error('Failed to fetch products');
-}
-const data = await response.json();
-setProducts(data);
-setFilteredProducts(data);
+  // =============================================================================
+  // LIFECYCLE EFFECTS
+  // =============================================================================
 
-// Build Trie for search functionality
-trie.buildTrie(data);
+  /** Load customer name from localStorage on mount */
+  useEffect(() => {
+    const savedCustomerName = localStorage.getItem('customerName') || "Guest";
+    setCustomerName(savedCustomerName);
+  }, []);
 
-if (!showProducts) {
-await fetchCategories();
-setShowProducts(true);
+  // =============================================================================
+  // API FUNCTIONS
+  // =============================================================================
+
+  /** Fetch available product categories from Django backend */
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.categories));
+      if (!response.ok) throw new Error('Failed to fetch categories');
+      
+      const categories = await response.json();
+      setCategories(categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories(['Electronics', 'Fashion', 'Home & Garden']); // Fallback
+    }
+  };
+  
+  /** Fetch products with optional category filter */
+  const fetchProducts = async (category = "") => {
+    setLoading(true);
+    setError("");
+    
+    try {
+      const url = category && category !== "All" 
+        ? `${buildApiUrl('django', API_CONFIG.endpoints.django.products)}?category=${encodeURIComponent(category)}`
+        : buildApiUrl('django', API_CONFIG.endpoints.django.products);
+      
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      
+      const data = await response.json();
+      setProducts(data);
+      setFilteredProducts(data);
+
+      // Build search trie for efficient searching
+      trie.buildTrie(data);
+
+      if (!showProducts) {
+        await fetchCategories();
+        setShowProducts(true);
 }
 } catch (err) {
 setError('Unable to load products. Please try again.');
@@ -588,10 +628,12 @@ return (
         >
             {/* AI Badge */}
             {feature.special && (
-            <div className="absolute -top-3 -right-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow-xl border-2 border-white/30 backdrop-blur-sm z-50 transform group-hover:scale-110 transition-all duration-300">
-                <span className="relative z-10">AI</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/50 to-purple-500/50 rounded-full blur-sm"></div>
-            </div>
+              <GradientBadge 
+                variant="vibrant"
+                className="absolute -top-3 -right-3 z-50 transform group-hover:scale-110 transition-all duration-300"
+              >
+                AI
+              </GradientBadge>
             )}
             
             {/* Full Card Diamond Effects for AI Special Card */}
@@ -668,15 +710,21 @@ return (
             <CardDescription className={`leading-relaxed mb-6 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
             {feature.description}
             </CardDescription>
-            <button
-            className={`bg-gradient-to-r ${feature.color} hover:shadow-md transition-all duration-200 rounded-lg px-6 py-2 font-medium text-white hover:scale-105 transform ${
-                feature.special
-                ? "ring-2 ring-blue-300 ring-opacity-50"
-                : ""
-            }`}
+            <GradientButton
+              variant={feature.special ? "primary" : "success"}
+              className="px-6 py-2 hover:scale-105 transform"
+              onClick={() => {
+                if (feature.special) {
+                  // Handle AI Assistant launch
+                  console.log("Launching AI Assistant");
+                } else {
+                  // Handle Get Started
+                  console.log("Getting started with", feature.title);
+                }
+              }}
             >
-            {feature.special ? "Launch AI Assistant" : "Get Started"}
-            </button>
+              {feature.special ? "Launch AI Assistant" : "Get Started"}
+            </GradientButton>
         </CardContent>
         </Card>
     ))}

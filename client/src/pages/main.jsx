@@ -1,53 +1,62 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+
+// UI Components
 import { Button } from "../components/ui/button";
+
+// Theme Components
 import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji } from "../components/theme";
+
+// Icons
 import { 
-ShoppingBag, Settings, Sun, Moon, Store,User,MessageCircle,Star,Receipt,FileText,BarChart,
-Package,Users,TrendingUp,Shield,Zap,Bot
+  ShoppingBag, Settings, Sun, Moon, Store, User, MessageCircle, Star, Receipt, 
+  FileText, BarChart, Package, Users, TrendingUp, Shield, Zap, Bot
 } from "lucide-react";
 
-
-
+// =============================================================================
+// MAIN LANDING PAGE COMPONENT
+// =============================================================================
 
 const Main = () => {
-// Get theme from context
-const { currentTheme, setCurrentTheme } = useTheme();
+  // Theme management
+  const { currentTheme, setCurrentTheme } = useTheme();
 
-// Track the manager's selected store theme separately
-// eslint-disable-next-line no-unused-vars
-const [managerStoreTheme, setManagerStoreTheme] = useState(() => {
-const saved = localStorage.getItem('managerStoreTheme');
-return saved || "dark";
-});
+  // =============================================================================
+  // STATE MANAGEMENT
+  // =============================================================================
 
-// Initialize store name from localStorage
-const [storeName, setStoreName] = useState(() => {
-const saved = localStorage.getItem('storeName');
-return saved || "StoreZen";
-});
+  // Store configuration
+  const [storeName, setStoreName] = useState(() => {
+    const saved = localStorage.getItem('storeName');
+    return saved || "StoreZen";
+  });
 
-// Listen for storage changes from other pages
-useEffect(() => {
-const handleStorageChange = (e) => {
-if (e.key === 'managerStoreTheme' && e.newValue !== null) {
-// Track manager's store theme separately
-setManagerStoreTheme(e.newValue);
-}
-if (e.key === 'storeName' && e.newValue !== null) {
-setStoreName(e.newValue);
-}
-};
+  // =============================================================================
+  // LIFECYCLE EFFECTS
+  // =============================================================================
 
-window.addEventListener('storage', handleStorageChange);
-return () => window.removeEventListener('storage', handleStorageChange);
-}, []);
+  /** Listen for localStorage changes from other pages */
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      // Update store name when changed from manager page
+      if (e.key === 'storeName' && e.newValue !== null) {
+        setStoreName(e.newValue);
+      }
+    };
 
-// Toggle between light and manager's selected store theme
-const toggleTheme = () => {
-  if (currentTheme === 'light') {
-    // Switch from light to manager's selected theme
-    const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // =============================================================================
+  // THEME FUNCTIONS
+  // =============================================================================
+
+  /** Toggle between light theme and manager's selected store theme */
+  const toggleTheme = () => {
+    if (currentTheme === 'light') {
+      // Switch from light to manager's selected theme
+      const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
     setCurrentTheme(savedManagerTheme);
     localStorage.setItem('storeZenTheme', savedManagerTheme);
     
