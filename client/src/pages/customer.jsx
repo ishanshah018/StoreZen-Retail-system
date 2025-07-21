@@ -656,7 +656,17 @@ return (
                         key={feature.title}
                         onClick={() => {
                         if (feature.title === "Your Profile Handle") {
-                            navigate('/profile');
+                            // Check if user is authenticated before navigating
+                            const token = localStorage.getItem('token');
+                            const loggedInUser = localStorage.getItem('loggedInUser');
+                            
+                            if (token && loggedInUser) {
+                                navigate('/profile');
+                            } else {
+                                // User not authenticated, redirect to login
+                                console.log("User not authenticated, redirecting to login");
+                                navigate('/login');
+                            }
                         } else if (feature.title === "View Products") {
                             fetchProducts();
                         }
@@ -778,21 +788,123 @@ return (
         <CardDescription className={`leading-relaxed mb-6 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
         {feature.description}
         </CardDescription>
+        
+        <div className="flex justify-center">
         <GradientButton
             variant={feature.special ? "primary" : "success"}
-            className="px-6 py-2 hover:scale-105 transform"
-            onClick={() => {
+            className={`px-8 py-3 font-semibold text-sm uppercase tracking-wide transform transition-all duration-300 hover:scale-110 hover:shadow-xl active:scale-95 group relative overflow-hidden rounded-lg ${
+            feature.special 
+                ? "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 shadow-lg hover:shadow-blue-500/50 hover:shadow-2xl border-2 border-transparent hover:border-white/20" 
+                : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-emerald-500/40 hover:shadow-xl border-2 border-transparent hover:border-emerald-300/30"
+            } hover:animate-pulse`}
+            onClick={(e) => {
+            e.stopPropagation(); // Prevent card click
             if (feature.special) {
                 // Handle AI Assistant launch
                 console.log("Launching AI Assistant");
             } else {
-                // Handle Get Started
-                console.log("Getting started with", feature.title);
+                // Handle View action
+                console.log("Viewing", feature.title);
+                if (feature.title === "View Products") {
+                fetchProducts();
+                } else if (feature.title === "Your Profile Handle") {
+                // Check if user is authenticated before navigating
+                const token = localStorage.getItem('token');
+                const loggedInUser = localStorage.getItem('loggedInUser');
+                
+                if (token && loggedInUser) {
+                    navigate('/profile');
+                } else {
+                    // User not authenticated, redirect to login
+                    console.log("User not authenticated, redirecting to login");
+                    navigate('/login');
+                }
+                }
             }
             }}
         >
-            {feature.special ? "Launch AI Assistant" : "Get Started"}
+            {/* Button shine effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+            
+            {/* Button ripple effect */}
+            <div className="absolute inset-0 rounded-lg bg-white/10 scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+            
+            {/* Floating particles for special buttons */}
+            {feature.special && (
+            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
+                <div className="absolute top-1 left-2 w-1 h-1 bg-white/60 rounded-full animate-ping" style={{animationDelay: '0.1s'}}></div>
+                <div className="absolute top-2 right-3 w-1 h-1 bg-white/50 rounded-full animate-ping" style={{animationDelay: '0.3s'}}></div>
+                <div className="absolute bottom-1 left-4 w-1 h-1 bg-white/40 rounded-full animate-ping" style={{animationDelay: '0.5s'}}></div>
+                <div className="absolute bottom-2 right-1 w-1 h-1 bg-white/60 rounded-full animate-ping" style={{animationDelay: '0.7s'}}></div>
+            </div>
+            )}
+            
+            {/* Button content */}
+            <span className="relative z-10 flex items-center gap-2">
+            {feature.special ? (
+                <>
+                <Star className="h-4 w-4" />
+                Launch AI Assistant
+                </>
+            ) : feature.title === "View Products" ? (
+                <>
+                <ShoppingCart className="h-4 w-4" />
+                Browse Products
+                </>
+            ) : feature.title === "Your Profile Handle" ? (
+                <>
+                <User className="h-4 w-4" />
+                View Profile
+                </>
+            ) : feature.title === "Chatbot Feature" ? (
+                <>
+                <MessageCircle className="h-4 w-4" />
+                Chat Now
+                </>
+            ) : feature.title === "Smart Billing" ? (
+                <>
+                <Receipt className="h-4 w-4" />
+                Quick Pay
+                </>
+            ) : feature.title === "View Past Bills" ? (
+                <>
+                <FileText className="h-4 w-4" />
+                View Bills
+                </>
+            ) : feature.title === "View Coupons at Store" ? (
+                <>
+                <Ticket className="h-4 w-4" />
+                See Coupons
+                </>
+            ) : feature.title === "View Smart Coins" ? (
+                <>
+                <Coins className="h-4 w-4" />
+                Check Balance
+                </>
+            ) : feature.title === "Submit Feedback for Store" ? (
+                <>
+                <Send className="h-4 w-4" />
+                Send Feedback
+                </>
+            ) : feature.title === "Wishlist Unavailable Items" ? (
+                <>
+                <Heart className="h-4 w-4" />
+                Add to Wishlist
+                </>
+            ) : feature.title === "Visualize Your Spending Trends" ? (
+                <>
+                <BarChart className="h-4 w-4" />
+                View Analytics
+                </>
+            ) : (
+                <>
+                <Package className="h-4 w-4" />
+                View
+                </>
+            )}
+            </span>
         </GradientButton>
+        </div>
     </CardContent>
     </Card>
 ))}
