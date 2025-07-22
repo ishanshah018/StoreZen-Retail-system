@@ -20,7 +20,6 @@ const getManagerProfile = async (req, res) => {
                 email: manager.email,
                 storeAddress: manager.storeAddress,
                 contact: manager.contact,
-                whatsappNumber: manager.whatsappNumber,
                 lowStockThreshold: manager.lowStockThreshold,
                 whatsappAlertsEnabled: manager.whatsappAlertsEnabled,
                 storeSettings: manager.storeSettings
@@ -45,7 +44,6 @@ const updateManagerProfile = async (req, res) => {
             email,
             storeAddress,
             contact,
-            whatsappNumber,
             lowStockThreshold,
             whatsappAlertsEnabled
         } = req.body;
@@ -61,7 +59,6 @@ const updateManagerProfile = async (req, res) => {
         if (email !== undefined) manager.email = email;
         if (storeAddress !== undefined) manager.storeAddress = storeAddress;
         if (contact !== undefined) manager.contact = contact;
-        if (whatsappNumber !== undefined) manager.whatsappNumber = whatsappNumber;
         if (lowStockThreshold !== undefined) manager.lowStockThreshold = lowStockThreshold;
         if (whatsappAlertsEnabled !== undefined) manager.whatsappAlertsEnabled = whatsappAlertsEnabled;
 
@@ -76,7 +73,6 @@ const updateManagerProfile = async (req, res) => {
                 email: manager.email,
                 storeAddress: manager.storeAddress,
                 contact: manager.contact,
-                whatsappNumber: manager.whatsappNumber,
                 lowStockThreshold: manager.lowStockThreshold,
                 whatsappAlertsEnabled: manager.whatsappAlertsEnabled,
                 storeSettings: manager.storeSettings
@@ -98,9 +94,7 @@ const updateStoreSettings = async (req, res) => {
     try {
         const {
             storeName,
-            storeTheme,
-            currency,
-            timezone
+            storeTheme
         } = req.body;
 
         let manager = await ManagerModel.findOne({});
@@ -112,8 +106,6 @@ const updateStoreSettings = async (req, res) => {
         // Update store settings
         if (storeName !== undefined) manager.storeSettings.storeName = storeName;
         if (storeTheme !== undefined) manager.storeSettings.storeTheme = storeTheme;
-        if (currency !== undefined) manager.storeSettings.currency = currency;
-        if (timezone !== undefined) manager.storeSettings.timezone = timezone;
 
         await manager.save();
 
@@ -150,8 +142,7 @@ const getStoreInfo = async (req, res) => {
             storeInfo: manager.fullStoreInfo,
             storeSettings: {
                 storeName: manager.storeSettings.storeName,
-                storeTheme: manager.storeSettings.storeTheme,
-                currency: manager.storeSettings.currency
+                storeTheme: manager.storeSettings.storeTheme
             }
         });
     } catch (error) {

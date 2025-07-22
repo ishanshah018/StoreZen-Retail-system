@@ -68,12 +68,12 @@ class ProductViewSet(viewsets.ModelViewSet):
             # Get manager profile from MongoDB via Node.js
             manager_profile = get_manager_profile_from_mongodb()
             
-            if manager_profile and manager_profile.get('whatsappAlertsEnabled') and manager_profile.get('whatsappNumber'):
+            if manager_profile and manager_profile.get('whatsappAlertsEnabled') and manager_profile.get('contact'):
                 threshold = manager_profile.get('lowStockThreshold', 10)
                 if product.stock <= threshold:
                     whatsapp_service = WhatsAppService()
                     whatsapp_service.check_and_send_alerts(
-                        manager_profile['whatsappNumber'],
+                        manager_profile['contact'],
                         threshold
                     )
         except Exception as e:
@@ -173,9 +173,9 @@ def test_whatsapp_alert(request):
         if not manager_profile:
             return Response({'error': 'Manager profile not found'}, status=400)
         
-        whatsapp_number = manager_profile.get('whatsappNumber')
+        whatsapp_number = manager_profile.get('contact')
         if not whatsapp_number:
-            return Response({'error': 'Manager WhatsApp number not configured'}, status=400)
+            return Response({'error': 'Manager contact number not configured'}, status=400)
         
         threshold = manager_profile.get('lowStockThreshold', 10)
         
@@ -211,9 +211,9 @@ def check_low_stock_alerts(request):
         if not manager_profile.get('whatsappAlertsEnabled', False):
             return Response({'message': 'WhatsApp alerts are disabled'})
         
-        whatsapp_number = manager_profile.get('whatsappNumber')
+        whatsapp_number = manager_profile.get('contact')
         if not whatsapp_number:
-            return Response({'error': 'Manager WhatsApp number not configured'}, status=400)
+            return Response({'error': 'Manager contact number not configured'}, status=400)
         
         threshold = manager_profile.get('lowStockThreshold', 10)
         

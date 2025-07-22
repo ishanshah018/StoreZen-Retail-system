@@ -162,14 +162,11 @@
         storeAddress: "",
         email: "",
         contact: "",
-        whatsappNumber: "",
         lowStockThreshold: 10,
         whatsappAlertsEnabled: true,
         storeSettings: {
         storeName: "StoreZen",
-        storeTheme: "dark",
-        currency: "₹",
-        timezone: "Asia/Kolkata"
+        storeTheme: "dark"
         }
     });
 
@@ -203,14 +200,11 @@
         storeAddress: manager.storeAddress,
         email: manager.email,
         contact: manager.contact,
-        whatsappNumber: manager.whatsappNumber || "",
         lowStockThreshold: manager.lowStockThreshold || 10,
         whatsappAlertsEnabled: manager.whatsappAlertsEnabled !== false,
         storeSettings: manager.storeSettings || {
         storeName: "StoreZen",
-        storeTheme: "dark",
-        currency: "₹",
-        timezone: "Asia/Kolkata"
+        storeTheme: "dark"
         }
     });
 
@@ -284,7 +278,6 @@
     'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-    whatsappNumber: managerProfile.whatsappNumber,
     lowStockThreshold: managerProfile.lowStockThreshold,
     whatsappAlertsEnabled: managerProfile.whatsappAlertsEnabled
     }),
@@ -320,9 +313,7 @@
     },
     body: JSON.stringify({
     storeName: storeDetails.name,
-    storeTheme: storeTheme,
-    currency: managerProfile.storeSettings?.currency || "₹",
-    timezone: managerProfile.storeSettings?.timezone || "Asia/Kolkata"
+    storeTheme: storeTheme
     }),
     });
 
@@ -2248,20 +2239,21 @@
     </label>
     </div>
 
-    {/* WhatsApp Number Input */}
-    <div>
-    <label className={`block text-lg font-medium mb-2 ${theme.text}`}>
-    WhatsApp Number
-    </label>
-    <input
-    type="tel"
-    value={managerProfile.whatsappNumber}
-    onChange={(e) => setManagerProfile({...managerProfile, whatsappNumber: e.target.value})}
-    className={`w-full px-4 py-3 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
-    placeholder="+1234567890 (include country code)"
-    />
-    <p className={`text-sm mt-1 ${theme.textSecondary}`}>Include country code (e.g., +1234567890)</p>
+    {/* Current WhatsApp Number Display */}
+    {managerProfile.contact && (
+    <div className={`p-3 rounded-lg ${theme.cardBg} ${theme.border} border`}>
+    <p className={`text-sm ${theme.textSecondary} mb-1`}>WhatsApp notifications will be sent to:</p>
+    <p className={`text-lg font-medium ${theme.text}`}>{managerProfile.contact}</p>
+    <p className={`text-xs ${theme.textSecondary} mt-1`}>Update your contact number in the profile section to change this.</p>
     </div>
+    )}
+
+    {!managerProfile.contact && (
+    <div className={`p-3 rounded-lg bg-yellow-50 border border-yellow-200`}>
+    <p className={`text-sm text-yellow-700 mb-1`}>⚠️ No contact number set</p>
+    <p className={`text-xs text-yellow-600`}>Please add your contact number in the profile section to receive WhatsApp alerts.</p>
+    </div>
+    )}
 
     {/* Alert Threshold */}
     <div>

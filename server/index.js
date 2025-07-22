@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require('body-parser');
 const cors = require("cors");
 const AuthRouter = require('./Routes/AuthRouter');
-const ProductRouter = require('./Routes/ProductRouter');
 const ProfileRouter = require('./Routes/ProfileRouter');
 const ManagerRouter = require('./Routes/ManagerRouter');
 
@@ -26,7 +25,6 @@ app.use(cors());
 
 // API routes
 app.use('/auth', AuthRouter);
-app.use('/products', ProductRouter);
 app.use('/profile', ProfileRouter);
 app.use('/manager', ManagerRouter);
 

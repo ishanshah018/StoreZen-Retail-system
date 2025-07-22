@@ -21,17 +21,13 @@ const ManagerSchema = new Schema({
     },
     contact: {
         type: String,
-        default: ""
-    },
-    whatsappNumber: {
-        type: String,
         default: "",
         validate: {
             validator: function(v) {
                 if (!v) return true; // Allow empty strings
                 return /^\+[1-9]\d{1,14}$/.test(v); // E.164 format validation
             },
-            message: 'WhatsApp number must be in E.164 format (e.g., +1234567890)'
+            message: 'Contact number must be in E.164 format (e.g., +1234567890)'
         }
     },
     lowStockThreshold: {
@@ -53,18 +49,11 @@ const ManagerSchema = new Schema({
             type: String,
             enum: ['light', 'dark', 'christmas', 'halloween', 'cyberpunk', 'diwali'],
             default: 'dark'
-        },
-        currency: {
-            type: String,
-            default: "₹"
-        },
-        timezone: {
-            type: String,
-            default: "Asia/Kolkata"
         }
     }
 }, {
-    versionKey: false // Removes __v field
+    versionKey: false, // Removes __v field
+    timestamps: false  // Removes createdAt and updatedAt
 });
 
 
@@ -93,7 +82,8 @@ ManagerSchema.statics.getOrCreateDefault = async function() {
             name: "Store Manager",
             email: "manager@storezen.com",
             storeAddress: "123 Main Street, City, State 12345",
-            contact: "+1 (555) 123-4567"
+            contact: "+1 (555) 123-4567",
+            lowStockThreshold: 10
         });
         await manager.save();
     }
