@@ -155,6 +155,15 @@
     const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
     const [availableCategories, setAvailableCategories] = useState([]);
 
+    // =============================================================================
+    // CUSTOMER DATA MANAGEMENT STATES
+    // =============================================================================
+    const [showCustomerProfiles, setShowCustomerProfiles] = useState(false);
+    const [showExportOptions, setShowExportOptions] = useState(false);
+    const [customerData, setCustomerData] = useState([]);
+    const [customerLoading, setCustomerLoading] = useState(false);
+    const [exportLoading, setExportLoading] = useState(false);
+
     // Manager profile data
     const [managerProfile, setManagerProfile] = useState({
         id: null,
@@ -189,7 +198,7 @@
         setProfileLoading(true);
         
         try {
-        const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.profile}`);
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.manager.profile}`);
         if (response.ok) {
             const data = await response.json();
             if (data.success) {
@@ -306,7 +315,7 @@
     setProfileLoading(true);
 
     try {
-    const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.storeSettings}`, {
+    const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.manager.storeSettings}`, {
     method: 'PUT',
     headers: {
     'Content-Type': 'application/json',
@@ -546,6 +555,66 @@
     setStockError('Failed to load stock data. Please try again.');
     } finally {
     setStockLoading(false);
+    }
+    };
+
+    // =============================================================================
+    // CUSTOMER DATA API FUNCTIONS
+    // =============================================================================
+    
+    // Function to fetch customer data from backend
+    const fetchCustomerData = async () => {
+    setCustomerLoading(true);
+    try {
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.customers.all}`);
+        if (!response.ok) {
+        throw new Error('Failed to fetch customer data');
+        }
+        const result = await response.json();
+        if (result.success) {
+        setCustomerData(result.data);
+        } else {
+        throw new Error(result.message || 'Failed to fetch customer data');
+        }
+    } catch (error) {
+        console.error('Error fetching customer data:', error);
+        alert('Failed to load customer data. Please try again.');
+    } finally {
+        setCustomerLoading(false);
+    }
+    };
+
+    // Function to export customer data
+    const exportCustomerData = async (format) => {
+    setExportLoading(true);
+    try {
+        const endpoint = format === 'pdf' 
+        ? API_CONFIG.endpoints.node.customers.exportPdf 
+        : API_CONFIG.endpoints.node.customers.exportExcel;
+        
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}${endpoint}`);
+        if (!response.ok) {
+        throw new Error(`Failed to export data in ${format} format`);
+        }
+
+        // Handle file download
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `customer_data.${format === 'pdf' ? 'pdf' : 'xlsx'}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        alert(`Customer data exported successfully as ${format.toUpperCase()}!`);
+        setShowExportOptions(false);
+    } catch (error) {
+        console.error('Error exporting customer data:', error);
+        alert(`Failed to export data in ${format} format. Please try again.`);
+    } finally {
+        setExportLoading(false);
     }
     };
 
@@ -1032,6 +1101,18 @@
     const handleReportClick = (action) => {
     if (action === "View Report") {
     setShowReportOptions(true);
+    }
+    };
+
+    // =============================================================================
+    // CUSTOMER DATA HANDLERS
+    // =============================================================================
+    const handleCustomerClick = (action) => {
+    if (action === "View Profiles") {
+    setShowCustomerProfiles(true);
+    fetchCustomerData();
+    } else if (action === "Export Data") {
+    setShowExportOptions(true);
     }
     };
 
@@ -2586,6 +2667,157 @@
     );
     };
 
+    // =============================================================================
+    // CUSTOMER DATA MODALS
+    // =============================================================================
+    
+    const renderCustomerProfilesModal = () => {
+    if (!showCustomerProfiles) return null;
+
+    return (
+        <GlassmorphismModal
+        isOpen={showCustomerProfiles}
+        onClose={() => setShowCustomerProfiles(false)}
+        title="Customer Profiles"
+        subtitle="View all customer data and details"
+        theme={theme}
+        size="xl"
+        >
+        <div className="space-y-6">
+        {customerLoading ? (
+            <div className="text-center py-8">
+            <div className={`text-lg ${theme.textSecondary}`}>Loading customer data...</div>
+            </div>
+        ) : customerData.length === 0 ? (
+            <div className="text-center py-8">
+            <div className={`text-lg ${theme.textSecondary}`}>No customer data found.</div>
+            </div>
+        ) : (
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+            {customerData.map((customer, index) => (
+                <div key={customer._id || index} className={`p-4 rounded-lg border backdrop-blur-sm ${theme.cardBg} ${theme.border}`}>
+                {/* Customer Name and Email */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
+                    <div>
+                    <h3 className={`text-lg font-semibold ${theme.text}`}>{customer.name}</h3>
+                    <p className={`text-sm ${theme.textSecondary}`}>{customer.email}</p>
+                    </div>
+                    <div className={`text-xs ${theme.accent} mt-2 md:mt-0`}>
+                    Customer #{index + 1}
+                    </div>
+                </div>
+                
+                {/* Customer Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Contact Information */}
+                    <div className="space-y-2">
+                    <h4 className={`text-sm font-medium ${theme.accent}`}>Contact Information</h4>
+                    <div className={`text-sm ${theme.textSecondary}`}>
+                        Contact: {customer.contactNumber || 'Not provided'}
+                    </div>
+                    </div>
+                    
+                    {/* Address Information */}
+                    <div className="space-y-2">
+                    <h4 className={`text-sm font-medium ${theme.accent}`}>Address</h4>
+                    <div className={`text-sm ${theme.textSecondary}`}>
+                        {customer.address?.street || customer.address?.city || customer.address?.state || customer.address?.pincode ? (
+                        <div>
+                            {customer.address.street && <div>Street: {customer.address.street}</div>}
+                            {customer.address.city && <div>City: {customer.address.city}</div>}
+                            {customer.address.state && <div>State: {customer.address.state}</div>}
+                            {customer.address.pincode && <div>Pincode: {customer.address.pincode}</div>}
+                        </div>
+                        ) : (
+                        'Address not provided'
+                        )}
+                    </div>
+                    </div>
+                </div>
+                
+                {/* Preferences */}
+                <div className="mt-3 pt-3 border-t border-gray-200/20">
+                    <h4 className={`text-sm font-medium ${theme.accent} mb-2`}>Preferences</h4>
+                    <div className={`text-sm ${theme.textSecondary}`}>
+                    Promotion Messages: {customer.notificationPreferences?.promotions ? 'Enabled' : 'Disabled'}
+                    </div>
+                </div>
+                </div>
+            ))}
+            </div>
+        )}
+        </div>
+        
+        <div className="flex justify-center mt-6">
+        <Button 
+            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg rounded-lg px-8"
+            onClick={() => fetchCustomerData()}
+            disabled={customerLoading}
+        >
+            {customerLoading ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
+        </div>
+        </GlassmorphismModal>
+    );
+    };
+
+    const renderExportOptionsModal = () => {
+    if (!showExportOptions) return null;
+
+    return (
+        <GlassmorphismModal
+        isOpen={showExportOptions}
+        onClose={() => setShowExportOptions(false)}
+        title="Export Customer Data"
+        subtitle="Choose your preferred export format"
+        theme={theme}
+        size="md"
+        >
+        <div className="space-y-6">
+        <div className={`p-4 rounded-lg ${theme.gradientOverlay} border ${theme.border}`}>
+            <p className={`text-sm ${theme.textSecondary} mb-2`}>
+            <strong>Export Options:</strong>
+            </p>
+            <ul className={`text-sm ${theme.textSecondary} space-y-1`}>
+            <li>• PDF: Professional formatted report</li>
+            <li>• Excel: Spreadsheet format for analysis</li>
+            </ul>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* PDF Export */}
+            <ActionCard
+            icon={() => <span className="text-2xl">PDF</span>}
+            title="PDF Format"
+            description="Professional report format"
+            onClick={() => exportCustomerData('pdf')}
+            variant="primary"
+            theme={ThemeCollections.inventory.red}
+            disabled={exportLoading}
+            />
+            
+            {/* Excel Export */}
+            <ActionCard
+            icon={() => <span className="text-2xl">XLS</span>}
+            title="Excel Format"
+            description="Spreadsheet for analysis"
+            onClick={() => exportCustomerData('excel')}
+            variant="success"
+            theme={ThemeCollections.inventory.green}
+            disabled={exportLoading}
+            />
+        </div>
+        
+        {exportLoading && (
+            <div className="text-center py-4">
+            <div className={`text-lg ${theme.textSecondary}`}>Preparing export...</div>
+            </div>
+        )}
+        </div>
+        </GlassmorphismModal>
+    );
+    };
+
     return (
     <div className={`min-h-screen transition-all duration-500 ${theme.bg}`}>
     {/* Animated Background Elements for Seasonal Themes */}
@@ -2748,6 +2980,8 @@
                 handleInventoryClick(action);
             } else if (feature.title === "View Sales Report" && action === "View Report") {
                 handleReportClick(action);
+            } else if (feature.title === "View Customer Data") {
+                handleCustomerClick(action);
             } else if (feature.title === "Settings" && (action === "Store Name" || action === "Store Theme" || action === "Profile" || action === "Stock Alerts")) {
                 handleSettingsClick(action);
             }
@@ -2824,6 +3058,8 @@
     {renderStoreSettingsModal()}
     {renderThemeSettingsModal()}
     {renderProfileSettingsModal()}
+    {renderCustomerProfilesModal()}
+    {renderExportOptionsModal()}
 
     {/* PDF Download Success Modal */}
     {showPdfSuccess && (

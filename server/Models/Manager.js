@@ -57,10 +57,6 @@ const ManagerSchema = new Schema({
 });
 
 
-// Database indexes for better query performance
-ManagerSchema.index({ email: 1 });
-
-
 // Virtual field - Returns formatted store information
 ManagerSchema.virtual('fullStoreInfo').get(function() {
     return {

@@ -44,9 +44,14 @@ const Main = () => {
           const data = await response.json();
           const managerTheme = data.manager?.storeSettings?.storeTheme || 'dark';
           
-          // Always update to manager's theme on load
-          setCurrentTheme(managerTheme);
-          localStorage.setItem('storeZenTheme', managerTheme);
+          // Only update if no theme is set in localStorage, otherwise preserve user's choice
+          const currentStoredTheme = localStorage.getItem('storeZenTheme');
+          if (!currentStoredTheme) {
+            setCurrentTheme(managerTheme);
+            localStorage.setItem('storeZenTheme', managerTheme);
+          }
+          
+          // Always save manager's theme for toggle reference
           localStorage.setItem('managerStoreTheme', managerTheme);
         }
       } catch (error) {
@@ -86,30 +91,29 @@ const Main = () => {
     if (currentTheme === 'light') {
       // Switch from light to manager's selected theme
       const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
-    setCurrentTheme(savedManagerTheme);
-    localStorage.setItem('storeZenTheme', savedManagerTheme);
-    
-    // Dispatch event to sync with manager page
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'storeZenTheme',
-      newValue: savedManagerTheme,
-      oldValue: 'light'
-    }));
-  } else {
-    // Switch to light mode and save it
-    setCurrentTheme('light');
-    // Save current theme as manager's store theme before switching to light
-    localStorage.setItem('managerStoreTheme', currentTheme);
-    localStorage.setItem('storeZenTheme', 'light');
-    
-    // Dispatch event to sync with manager page
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'storeZenTheme',
-      newValue: 'light',
-      oldValue: currentTheme
-    }));
-  }
-};
+      setCurrentTheme(savedManagerTheme);
+      localStorage.setItem('storeZenTheme', savedManagerTheme);
+      
+      // Dispatch event to sync with manager page
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'storeZenTheme',
+        newValue: savedManagerTheme,
+        oldValue: 'light'
+      }));
+    } else {
+      // Switch to light mode and save it
+      setCurrentTheme('light');
+      // Don't change the manager's stored theme, just switch to light
+      localStorage.setItem('storeZenTheme', 'light');
+      
+      // Dispatch event to sync with manager page
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'storeZenTheme',
+        newValue: 'light',
+        oldValue: currentTheme
+      }));
+    }
+  };
 
 // Get theme styles and extend with additional properties for landing page
 const baseThemeStyles = getThemeStyles(currentTheme);

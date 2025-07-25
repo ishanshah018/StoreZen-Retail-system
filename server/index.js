@@ -4,6 +4,7 @@ const cors = require("cors");
 const AuthRouter = require('./Routes/AuthRouter');
 const ProfileRouter = require('./Routes/ProfileRouter');
 const ManagerRouter = require('./Routes/ManagerRouter');
+const CustomerRouter = require('./Routes/CustomerRoutes');
 
 require('dotenv').config();
 require('./Models/db');
@@ -27,6 +28,7 @@ app.use(cors());
 app.use('/auth', AuthRouter);
 app.use('/profile', ProfileRouter);
 app.use('/manager', ManagerRouter);
+app.use('/api/customers', CustomerRouter);
 
 
 // Start server

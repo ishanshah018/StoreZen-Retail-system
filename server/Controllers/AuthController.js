@@ -33,15 +33,22 @@ const login = async (req, res) => {
     try {
         const { email, password } = req.body;
         const user = await UserModel.findOne({ email });
-        const errorMsg = 'Auth failed email or password is wrong';
+        
         if (!user) {
-            return res.status(403)
-                .json({ message: errorMsg, success: false });
+            return res.status(404)
+                .json({ 
+                    message: 'User does not exist. Please sign up first.', 
+                    success: false,
+                    redirect: 'signup'
+                });
         }
         const isPassEqual = await bcrypt.compare(password, user.password);
         if (!isPassEqual) {
-            return res.status(403)
-                .json({ message: errorMsg, success: false });
+            return res.status(401)
+                .json({ 
+                    message: 'Incorrect password. Please try again.', 
+                    success: false 
+                });
         }
         const jwtToken = jwt.sign(
             { email: user.email, _id: user._id },
