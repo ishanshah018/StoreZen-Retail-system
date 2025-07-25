@@ -35,6 +35,29 @@ const Main = () => {
   // LIFECYCLE EFFECTS
   // =============================================================================
 
+  /** Fetch manager's theme on component load */
+  useEffect(() => {
+    const fetchManagerTheme = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/manager/profile');
+        if (response.ok) {
+          const data = await response.json();
+          const managerTheme = data.manager?.storeSettings?.storeTheme || 'dark';
+          
+          // Always update to manager's theme on load
+          setCurrentTheme(managerTheme);
+          localStorage.setItem('storeZenTheme', managerTheme);
+          localStorage.setItem('managerStoreTheme', managerTheme);
+        }
+      } catch (error) {
+        console.log('Could not fetch manager theme, using default');
+      }
+    };
+
+    fetchManagerTheme();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
   /** Listen for localStorage changes from other pages */
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -42,11 +65,17 @@ const Main = () => {
       if (e.key === 'storeName' && e.newValue !== null) {
         setStoreName(e.newValue);
       }
+      
+      // Update theme when changed from manager page
+      if (e.key === 'storeZenTheme' && e.newValue !== null) {
+        setCurrentTheme(e.newValue);
+      }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // =============================================================================
   // THEME FUNCTIONS
@@ -204,7 +233,7 @@ return (
     </div>
 )}
 {/* Navigation Bar with Glassmorphism */}
-<nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${themeStyles.navBg} backdrop-blur-xl border-b shadow-lg shadow-blue-500/5`}>
+<nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${themeStyles.navBg} backdrop-blur-xl border-b ${themeStyles.border} shadow-lg`}>
 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div className="flex justify-between items-center h-16">
     {/* Logo */}
@@ -235,16 +264,30 @@ return (
     <div className="flex items-center">
         <button
         onClick={toggleTheme}
-        className={`relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-            currentTheme === 'light' ? 'bg-gray-300' : 
-            currentTheme === 'christmas' ? 'bg-red-600' :
-            currentTheme === 'halloween' ? 'bg-orange-600' :
-            currentTheme === 'cyberpunk' ? 'bg-cyan-600' :
-            currentTheme === 'diwali' ? 'bg-yellow-600' :
-            'bg-blue-600'
-        } focus:ring-offset-gray-900`}
+        className={`relative w-14 h-7 rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+            currentTheme === 'light' ? 'bg-gray-300 focus:ring-blue-500' : 
+            currentTheme === 'christmas' ? 'bg-red-600 focus:ring-red-500' :
+            currentTheme === 'halloween' ? 'bg-orange-600 focus:ring-orange-500' :
+            currentTheme === 'cyberpunk' ? 'bg-cyan-600 focus:ring-cyan-500' :
+            currentTheme === 'diwali' ? 'bg-yellow-600 focus:ring-yellow-500' :
+            'bg-blue-600 focus:ring-blue-500'
+        } ${
+            currentTheme === 'light' ? 'focus:ring-offset-white' : 
+            currentTheme === 'christmas' ? 'focus:ring-offset-red-900' :
+            currentTheme === 'halloween' ? 'focus:ring-offset-orange-900' :
+            currentTheme === 'cyberpunk' ? 'focus:ring-offset-cyan-900' :
+            currentTheme === 'diwali' ? 'focus:ring-offset-orange-100' :
+            'focus:ring-offset-gray-900'
+        }`}
         >
-        <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full transition-all duration-300 flex items-center justify-center ${currentTheme === 'light' ? 'translate-x-0 bg-white' : 'translate-x-7 bg-gray-900'}`}>
+        <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full transition-all duration-300 flex items-center justify-center ${
+            currentTheme === 'light' ? 'translate-x-0 bg-white' : 
+            currentTheme === 'christmas' ? 'translate-x-7 bg-red-900' :
+            currentTheme === 'halloween' ? 'translate-x-7 bg-orange-900' :
+            currentTheme === 'cyberpunk' ? 'translate-x-7 bg-cyan-800' :
+            currentTheme === 'diwali' ? 'translate-x-7 bg-orange-800' :
+            'translate-x-7 bg-gray-900'
+        }`}>
             {currentTheme === 'light' ? (
             <Sun className="h-4 w-4 text-yellow-500" />
             ) : currentTheme === 'dark' ? (
@@ -286,7 +329,7 @@ return (
         <Link to="/signup">
         <Button
             size="lg"
-            className={`bg-gradient-to-r ${themeStyles.buttonPrimary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
+            className={`bg-gradient-to-r ${themeStyles.buttonPrimary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg ${themeStyles.hover} transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
         >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
             <ShoppingBag className="mr-3 h-6 w-6 relative z-10" />
@@ -297,7 +340,7 @@ return (
         <Link to="/manager">
         <Button
             size="lg"
-            className={`bg-gradient-to-r ${themeStyles.buttonSecondary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg hover:shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
+            className={`bg-gradient-to-r ${themeStyles.buttonSecondary} text-white font-semibold text-lg px-8 py-4 rounded-lg shadow-lg ${themeStyles.hover} transition-all duration-300 flex items-center relative overflow-hidden group transform hover:scale-105`}
         >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 skew-x-12"></div>
             <Settings className="mr-3 h-6 w-6 relative z-10" />
@@ -308,9 +351,9 @@ return (
 
     {/* Key Benefits with 3D Tilt Effect */}
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:-rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-green-500/10`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <Shield className="h-12 w-12 text-green-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:-rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} ${themeStyles.border} backdrop-blur-sm ${themeStyles.hover}`}>
+        <div className={`absolute inset-0 ${themeStyles.gradientOverlay} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+        <Shield className={`h-12 w-12 ${themeStyles.accent} mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300`} />
         <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
             Secure & Reliable
         </h3>
@@ -318,9 +361,9 @@ return (
             Enterprise-grade security with 99.9% uptime guarantee
         </p>
         </div>
-        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-yellow-500/10`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <Zap className="h-12 w-12 text-yellow-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} ${themeStyles.border} backdrop-blur-sm ${themeStyles.hover}`}>
+        <div className={`absolute inset-0 ${themeStyles.gradientOverlay} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+        <Zap className={`h-12 w-12 ${themeStyles.accent} mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300`} />
         <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
             Lightning Fast
         </h3>
@@ -328,9 +371,9 @@ return (
             Optimized performance for seamless user experience
         </p>
         </div>
-        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} backdrop-blur-sm border border-gray-200/20 hover:shadow-xl hover:shadow-blue-500/10`}>
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-        <Bot className="h-12 w-12 text-blue-500 mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300" />
+        <div className={`text-center p-6 rounded-xl transition-all duration-300 transform hover:scale-105 hover:rotate-1 relative overflow-hidden group cursor-pointer ${themeStyles.cardBg} ${themeStyles.border} backdrop-blur-sm ${themeStyles.hover}`}>
+        <div className={`absolute inset-0 ${themeStyles.gradientOverlay} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}></div>
+        <Bot className={`h-12 w-12 ${themeStyles.accent} mx-auto mb-4 transform group-hover:scale-110 transition-transform duration-300`} />
         <h3 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
             AI Integrated System
         </h3>
@@ -384,15 +427,15 @@ return (
         {customerFeatures.map((feature, index) => (
         <div
             key={index}
-            className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent hover:border-blue-400/30 ${currentTheme === 'light' ? 'bg-white/50 hover:bg-gray-50/80' : 'bg-gray-700/50 hover:bg-gray-600/50'} backdrop-blur-sm`}
+            className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent ${themeStyles.border} ${themeStyles.cardBg} ${themeStyles.hover} backdrop-blur-sm`}
             style={{
             transform: `perspective(1000px) rotateX(${Math.sin(index * 0.5) * 2}deg) rotateY(${Math.cos(index * 0.3) * 2}deg)`,
             animationDelay: `${index * 0.1}s`
             }}
         >
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
-            <feature.icon className="h-10 w-10 text-blue-600 mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10" />
+            <div className={`absolute inset-0 ${themeStyles.gradientOverlay} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+            <div className={`absolute top-0 left-0 w-full h-1 ${themeStyles.button} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left`}></div>
+            <feature.icon className={`h-10 w-10 ${themeStyles.accent} mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10`} />
             <h4 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
             {feature.title}
             </h4>
@@ -418,15 +461,15 @@ return (
         {managerFeatures.map((feature, index) => (
         <div
             key={index}
-            className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent hover:border-purple-400/30 ${currentTheme === 'light' ? 'bg-white/50 hover:bg-gray-50/80' : 'bg-gray-700/50 hover:bg-gray-600/50'} backdrop-blur-sm`}
+            className={`p-6 rounded-xl shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 cursor-pointer relative overflow-hidden group transform hover:scale-105 border-2 border-transparent ${themeStyles.border} ${themeStyles.cardBg} ${themeStyles.hover} backdrop-blur-sm`}
             style={{
             transform: `perspective(1000px) rotateX(${Math.sin((index + 3) * 0.5) * 2}deg) rotateY(${Math.cos((index + 3) * 0.3) * 2}deg)`,
             animationDelay: `${(index + customerFeatures.length) * 0.1}s`
             }}
         >
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 via-transparent to-pink-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-purple-500 to-pink-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"></div>
-            <feature.icon className="h-10 w-10 text-purple-600 mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10" />
+            <div className={`absolute inset-0 ${themeStyles.gradientOverlay} opacity-0 group-hover:opacity-100 transition-opacity duration-500`}></div>
+            <div className={`absolute top-0 left-0 w-full h-1 ${themeStyles.button} transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left`}></div>
+            <feature.icon className={`h-10 w-10 ${themeStyles.accent} mb-4 transform group-hover:scale-125 group-hover:rotate-12 transition-all duration-300 relative z-10`} />
             <h4 className={`text-lg font-semibold mb-2 ${themeStyles.text} relative z-10`}>
             {feature.title}
             </h4>
@@ -441,7 +484,7 @@ return (
 </section>
 
 {/* Footer */}
-<footer className={`py-12 ${themeStyles.bg} border-t ${currentTheme === 'light' ? 'border-gray-200' : 'border-gray-700'}`}>
+<footer className={`py-12 ${themeStyles.bg} border-t ${themeStyles.border}`}>
 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div className="text-center">
     <div className="flex items-center justify-center space-x-3 mb-4">

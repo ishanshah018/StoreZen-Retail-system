@@ -19,9 +19,9 @@ export const getThemeStyles = (currentTheme) => {
       };
     case 'halloween':
       return {
-        bg: 'bg-gradient-to-br from-orange-100 via-purple-50 to-orange-100',
+        bg: 'bg-gradient-to-br from-gray-900 via-orange-900 to-purple-900',
         navBg: 'bg-orange-900/80 border-purple-600/50',
-        cardBg: 'bg-gray-900/90 backdrop-blur-sm border-orange-400',
+        cardBg: 'bg-orange-800/90 backdrop-blur-sm border-orange-400',
         text: 'text-orange-200',
         textSecondary: 'text-purple-300',
         accent: 'text-orange-400',
@@ -35,19 +35,19 @@ export const getThemeStyles = (currentTheme) => {
       };
     case 'cyberpunk':
       return {
-        bg: 'bg-gradient-to-br from-gray-900 via-purple-900 to-cyan-900',
-        navBg: 'bg-gray-900/80 border-cyan-600/50',
-        cardBg: 'bg-gray-800/90 backdrop-blur-sm border-cyan-400',
-        text: 'text-cyan-100',
+        bg: 'bg-gradient-to-br from-purple-950 via-purple-900 to-purple-800',
+        navBg: 'bg-purple-900/80 border-purple-600/50',
+        cardBg: 'bg-purple-900/90 backdrop-blur-sm border-purple-400',
+        text: 'text-purple-100',
         textSecondary: 'text-purple-300',
-        accent: 'text-cyan-400',
-        border: 'border-cyan-400',
-        input: 'bg-gray-800/50 border-cyan-600/50 text-cyan-100 placeholder-cyan-300',
-        button: 'bg-gradient-to-r from-cyan-600 to-purple-600 hover:from-cyan-700 hover:to-purple-700',
-        link: 'text-cyan-400 hover:text-cyan-300',
-        hover: 'hover:shadow-xl hover:shadow-cyan-500/30 hover:border-purple-400',
-        hoverBg: 'hover:bg-gray-700/30',
-        gradientOverlay: 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20'
+        accent: 'text-purple-400',
+        border: 'border-purple-400',
+        input: 'bg-purple-800/50 border-purple-600/50 text-purple-100 placeholder-purple-300',
+        button: 'bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600',
+        link: 'text-purple-400 hover:text-purple-300',
+        hover: 'hover:shadow-xl hover:shadow-purple-500/30 hover:border-purple-300',
+        hoverBg: 'hover:bg-purple-700/30',
+        gradientOverlay: 'bg-gradient-to-r from-purple-500/20 to-purple-400/20'
       };
     case 'diwali':
       return {
