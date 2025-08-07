@@ -9,6 +9,7 @@ const ProfileRouter = require('./Routes/ProfileRouter');
 const ManagerRouter = require('./Routes/ManagerRouter');
 const CustomerRouter = require('./Routes/CustomerRoutes');
 const SmsRouter = require('./Routes/SmsRoutes');
+const CouponRouter = require('./Routes/CouponRouter');
 
 require('./Models/db');
 
@@ -33,6 +34,7 @@ app.use('/profile', ProfileRouter);
 app.use('/manager', ManagerRouter);
 app.use('/api/customers', CustomerRouter);
 app.use('/api/sms', SmsRouter);
+app.use('/api/coupons', CouponRouter);
 
 
 // Start server

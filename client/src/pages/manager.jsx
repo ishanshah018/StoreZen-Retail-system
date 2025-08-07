@@ -22,10 +22,9 @@
     Calendar, Clock, Store, ArrowLeft,
     } from "lucide-react";
 
-    // Utilities and API
-    import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
-
-    // =============================================================================
+// Utilities and API
+import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
+import CouponManagement from '../components/CouponManagement';    // =============================================================================
     // UTILITY CLASSES - TRIE DATA STRUCTURE FOR SEARCH
     // =============================================================================
 
@@ -105,6 +104,8 @@
     const [showStoreSettings, setShowStoreSettings] = useState(false);
     const [showThemeSettings, setShowThemeSettings] = useState(false);
     const [showProfileSettings, setShowProfileSettings] = useState(false);
+    const [showCouponManagement, setShowCouponManagement] = useState(false);
+    const [couponMode, setCouponMode] = useState('add'); // 'add' or 'view'
 
     // Confirmation modal states
     const [showAddMore, setShowAddMore] = useState(false);
@@ -3547,6 +3548,14 @@
                 handleCustomerClick(action);
             } else if (feature.title === "Send Promotional Messages" && action === "Send Now") {
                 handlePromotionalMessages();
+            } else if (feature.title === "Add New Discount Coupons") {
+                if (action === "Add Coupon") {
+                    setCouponMode('add');
+                    setShowCouponManagement(true);
+                } else if (action === "View Active") {
+                    setCouponMode('view');
+                    setShowCouponManagement(true);
+                }
             } else if (feature.title === "Settings" && (action === "Store Name" || action === "Store Theme" || action === "Profile" || action === "Stock Alerts")) {
                 handleSettingsClick(action);
             }
@@ -3626,6 +3635,16 @@
     {renderPromotionalMessagesModal()}
     {renderCustomerProfilesModal()}
     {renderExportOptionsModal()}
+
+    {/* Coupon Management Modal */}
+    {showCouponManagement && (
+        <CouponManagement 
+            isOpen={showCouponManagement}
+            mode={couponMode}
+            theme={theme}
+            onClose={() => setShowCouponManagement(false)}
+        />
+    )}
 
     {/* PDF Download Success Modal */}
     {showPdfSuccess && (
