@@ -630,6 +630,23 @@
 
     // Handle customer selection for messaging
     const handleCustomerSelection = (customerId) => {
+        // Find the customer to check their notification preferences
+        const customer = customerData.find(c => c._id === customerId);
+        
+        // Check if customer has disabled promotions
+        const hasPromotionsDisabled = customer?.notificationPreferences?.promotions === false;
+        
+        if (hasPromotionsDisabled) {
+            console.log(`Customer ${customer.name} has disabled promotional messages`);
+            // Show message to user
+            setMessageResult({ 
+                success: false, 
+                message: 'This customer has disabled promotional messages.',
+                details: [] 
+            });
+            return; // Don't allow selection
+        }
+        
         setSelectedCustomers(prev => {
             const isSelected = prev.includes(customerId);
             const newSelection = isSelected 
@@ -648,10 +665,15 @@
             setSelectedCustomers([]);
             setSelectAllCustomers(false);
         } else {
-            const allCustomerIds = customerData
-                .filter(customer => customer.contactNumber && customer.contactNumber.trim() !== '')
+            // Only select customers who have promotional messages enabled
+            const eligibleCustomerIds = customerData
+                .filter(customer => 
+                    customer.contactNumber && 
+                    customer.contactNumber.trim() !== '' &&
+                    customer.notificationPreferences?.promotions !== false
+                )
                 .map(customer => customer._id);
-            setSelectedCustomers(allCustomerIds);
+            setSelectedCustomers(eligibleCustomerIds);
             setSelectAllCustomers(true);
         }
     };
@@ -3005,7 +3027,11 @@
                                     📱 Select Customers
                                 </h4>
                                 <div className={`text-sm ${theme.textSecondary}`}>
-                                    {selectedCustomers.length} of {customerData.filter(c => c.contactNumber && c.contactNumber.trim() !== '').length} selected
+                                    {selectedCustomers.length} of {customerData.filter(c => 
+                                        c.contactNumber && 
+                                        c.contactNumber.trim() !== '' && 
+                                        c.notificationPreferences?.promotions !== false
+                                    ).length} eligible selected
                                 </div>
                             </div>
 
@@ -3023,7 +3049,11 @@
                                     </span>
                                 </div>
                                 <GradientBadge variant="primary" size="sm">
-                                    {customerData.filter(c => c.contactNumber && c.contactNumber.trim() !== '').length} Total
+                                    {customerData.filter(c => 
+                                        c.contactNumber && 
+                                        c.contactNumber.trim() !== '' && 
+                                        c.notificationPreferences?.promotions !== false
+                                    ).length} Eligible
                                 </GradientBadge>
                             </div>
 
@@ -3044,47 +3074,58 @@
                                 ) : (
                                     customerData
                                         .filter(customer => customer.contactNumber && customer.contactNumber.trim() !== '')
-                                        .map((customer, index) => (
+                                        .map((customer, index) => {
+                                            // Check if customer has disabled promotional messages
+                                            const hasPromotionsDisabled = customer?.notificationPreferences?.promotions === false;
+                                            
+                                            return (
                                             <div 
                                                 key={customer._id || index}
-                                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                                                    selectedCustomers.includes(customer._id)
-                                                        ? `${theme.cardBg} ${theme.border} ring-2 ring-blue-500/50 bg-blue-500/5`
-                                                        : `${theme.cardBg} ${theme.border} hover:bg-blue-500/5`
+                                                className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 ${
+                                                    hasPromotionsDisabled
+                                                        ? `${theme.cardBg} ${theme.border} opacity-50 cursor-not-allowed bg-red-50 border-red-200`
+                                                        : selectedCustomers.includes(customer._id)
+                                                            ? `${theme.cardBg} ${theme.border} ring-2 ring-blue-500/50 bg-blue-500/5 cursor-pointer`
+                                                            : `${theme.cardBg} ${theme.border} hover:bg-blue-500/5 cursor-pointer`
                                                 }`}
-                                                onClick={() => handleCustomerSelection(customer._id)}
+                                                onClick={() => {
+                                                    if (!hasPromotionsDisabled) {
+                                                        handleCustomerSelection(customer._id);
+                                                    }
+                                                }}
                                             >
                                                 <div className="flex items-center space-x-3">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedCustomers.includes(customer._id)}
-                                                        onChange={() => handleCustomerSelection(customer._id)}
+                                                        disabled={hasPromotionsDisabled}
+                                                        onChange={() => {
+                                                            if (!hasPromotionsDisabled) {
+                                                                handleCustomerSelection(customer._id);
+                                                            }
+                                                        }}
                                                         onClick={(e) => e.stopPropagation()}
-                                                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                                        className={`w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 ${
+                                                            hasPromotionsDisabled ? 'opacity-30 cursor-not-allowed' : ''
+                                                        }`}
                                                     />
                                                     <div>
-                                                        <div className={`font-medium ${theme.text}`}>
+                                                        <div className={`font-medium ${hasPromotionsDisabled ? 'text-gray-400' : theme.text}`}>
                                                             {customer.name}
                                                         </div>
-                                                        <div className={`text-sm ${theme.textSecondary}`}>
+                                                        <div className={`text-sm ${hasPromotionsDisabled ? 'text-gray-400' : theme.textSecondary}`}>
                                                             📞 {customer.contactNumber}
                                                         </div>
+                                                        {hasPromotionsDisabled && (
+                                                            <div className="text-xs text-red-500 mt-1">
+                                                                🚫 Promotional messages disabled
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="px-3 py-1 text-xs"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedCustomers([customer._id]);
-                                                        setSelectAllCustomers(false);
-                                                    }}
-                                                >
-                                                    Send
-                                                </Button>
                                             </div>
-                                        ))
+                                            );
+                                        })
                                 )}
                             </div>
                         </div>
