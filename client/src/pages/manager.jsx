@@ -164,6 +164,18 @@
     const [customerLoading, setCustomerLoading] = useState(false);
     const [exportLoading, setExportLoading] = useState(false);
 
+    // =============================================================================
+    // PROMOTIONAL MESSAGES STATES
+    // =============================================================================
+    const [showPromotionalMessages, setShowPromotionalMessages] = useState(false);
+    const [selectedCustomers, setSelectedCustomers] = useState([]);
+    const [selectAllCustomers, setSelectAllCustomers] = useState(false);
+    const [customMessage, setCustomMessage] = useState('');
+    const [selectedTemplate, setSelectedTemplate] = useState('');
+    const [sendingMessages, setSendingMessages] = useState(false);
+    const [messageSent, setMessageSent] = useState(false);
+    const [messageResult, setMessageResult] = useState(null); // Store success/error details
+
     // Manager profile data
     const [managerProfile, setManagerProfile] = useState({
         id: null,
@@ -559,8 +571,239 @@
     };
 
     // =============================================================================
-    // CUSTOMER DATA API FUNCTIONS
+    // PROMOTIONAL MESSAGES FUNCTIONALITY
     // =============================================================================
+    
+    // Pre-made message templates for store managers
+    const messageTemplates = [
+        {
+            id: 'welcome',
+            title: 'Welcome Offer',
+            message: `Welcome to ${storeDetails.name}! Get 20% OFF on your first purchase. Use code: WELCOME20. Valid till this weekend only!`
+        },
+        {
+            id: 'flash_sale',
+            title: 'Flash Sale',
+            message: `FLASH SALE ALERT! Up to 50% OFF on selected items at ${storeDetails.name}. Limited time offer - Shop now before it's gone!`
+        },
+        {
+            id: 'new_arrivals',
+            title: 'New Arrivals',
+            message: `New collection just arrived at ${storeDetails.name}! Be the first to explore our latest products. Visit us today!`
+        },
+        {
+            id: 'weekend_special',
+            title: 'Weekend Special',
+            message: `Weekend Special at ${storeDetails.name}! Buy 2 Get 1 Free on all categories. This weekend only! Don't miss out!`
+        },
+        {
+            id: 'festival_offer',
+            title: 'Festival Celebration',
+            message: `Festival Special! Celebrate with us at ${storeDetails.name}. Flat 30% OFF + Free delivery on orders above ₹500. Happy Shopping!`
+        },
+        {
+            id: 'loyalty_reward',
+            title: 'Loyalty Reward',
+            message: `Thank you for being our loyal customer! Here's an exclusive 25% discount just for you at ${storeDetails.name}. Code: LOYAL25`
+        },
+        {
+            id: 'clearance',
+            title: 'Clearance Sale',
+            message: `MEGA CLEARANCE SALE! Up to 70% OFF at ${storeDetails.name}. Everything must go! Visit us before stock runs out!`
+        },
+        {
+            id: 'back_in_stock',
+            title: 'Back in Stock',
+            message: `Good news! Your favorite items are back in stock at ${storeDetails.name}. Limited quantity - Order now!`
+        }
+    ];
+
+    // Handle promotional messages modal
+    const handlePromotionalMessages = () => {
+        setShowPromotionalMessages(true);
+        fetchCustomerData(); // Fetch customers for messaging
+        setSelectedCustomers([]);
+        setSelectAllCustomers(false);
+        setCustomMessage('');
+        setSelectedTemplate('');
+    };
+
+    // Handle customer selection for messaging
+    const handleCustomerSelection = (customerId) => {
+        setSelectedCustomers(prev => {
+            const isSelected = prev.includes(customerId);
+            const newSelection = isSelected 
+                ? prev.filter(id => id !== customerId)
+                : [...prev, customerId];
+            
+            // Update select all state based on selection
+            setSelectAllCustomers(newSelection.length === customerData.length && customerData.length > 0);
+            return newSelection;
+        });
+    };
+
+    // Handle select all customers
+    const handleSelectAllCustomers = () => {
+        if (selectAllCustomers) {
+            setSelectedCustomers([]);
+            setSelectAllCustomers(false);
+        } else {
+            const allCustomerIds = customerData
+                .filter(customer => customer.contactNumber && customer.contactNumber.trim() !== '')
+                .map(customer => customer._id);
+            setSelectedCustomers(allCustomerIds);
+            setSelectAllCustomers(true);
+        }
+    };
+
+    // Handle template selection
+    const handleTemplateSelection = (template) => {
+        setSelectedTemplate(template.id);
+        setCustomMessage(template.message);
+    };
+
+    // Send promotional messages
+    const sendPromotionalMessages = async () => {
+        if (selectedCustomers.length === 0) {
+            setMessageResult({
+                success: false,
+                error: 'Please select at least one customer to send messages.',
+                successCount: 0,
+                failedCount: 0,
+                totalCount: 0
+            });
+            setMessageSent(true);
+            setTimeout(() => {
+                setMessageSent(false);
+                setMessageResult(null);
+            }, 3000);
+            return;
+        }
+
+        if (!customMessage.trim()) {
+            setMessageResult({
+                success: false,
+                error: 'Please enter a message or select a template.',
+                successCount: 0,
+                failedCount: 0,
+                totalCount: 0
+            });
+            setMessageSent(true);
+            setTimeout(() => {
+                setMessageSent(false);
+                setMessageResult(null);
+            }, 3000);
+            return;
+        }
+
+        setSendingMessages(true);
+        
+        try {
+            // Get selected customers with contact numbers
+            const selectedCustomerData = customerData.filter(customer => 
+                selectedCustomers.includes(customer._id) && 
+                customer.contactNumber && 
+                customer.contactNumber.trim() !== ''
+            );
+
+            if (selectedCustomerData.length === 0) {
+                setMessageResult({
+                    success: false,
+                    error: 'None of the selected customers have valid contact numbers.',
+                    successCount: 0,
+                    failedCount: selectedCustomers.length,
+                    totalCount: selectedCustomers.length
+                });
+                setMessageSent(true);
+                setSendingMessages(false);
+                setTimeout(() => {
+                    setMessageSent(false);
+                    setMessageResult(null);
+                }, 3000);
+                return;
+            }
+
+            // Send SMS using Twilio API
+            const response = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.sms.send), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    message: customMessage,
+                    customers: selectedCustomerData.map(customer => ({
+                        name: customer.name,
+                        phoneNumber: customer.contactNumber
+                    }))
+                })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.message || 'Failed to send messages');
+            }
+
+            console.log('SMS sent successfully:', result);
+            
+            // Store success details for modal display
+            const successCount = result.data?.campaign?.successful || 0;
+            const failedCount = result.data?.campaign?.failed || 0;
+            
+            setMessageResult({
+                success: successCount > 0,
+                successCount,
+                failedCount,
+                totalCount: successCount + failedCount,
+                details: result.data?.details || []
+            });
+
+            if (failedCount > 0) {
+                console.log('Failed SMS details:', result.data?.details?.filter(d => !d.success));
+            }
+
+            setMessageSent(true);
+            
+            // Reset form after 5 seconds (increased time to read results)
+            setTimeout(() => {
+                setMessageSent(false);
+                setMessageResult(null);
+                setShowPromotionalMessages(false);
+                setSelectedCustomers([]);
+                setSelectAllCustomers(false);
+                setCustomMessage('');
+                setSelectedTemplate('');
+            }, 5000);
+
+        } catch (error) {
+            console.error('Error sending promotional messages:', error);
+            
+            // Store error details for modal display
+            setMessageResult({
+                success: false,
+                error: error.message,
+                successCount: 0,
+                failedCount: selectedCustomers.length,
+                totalCount: selectedCustomers.length
+            });
+            
+            setMessageSent(true);
+            
+            // Reset form after 5 seconds
+            setTimeout(() => {
+                setMessageSent(false);
+                setMessageResult(null);
+                setShowPromotionalMessages(false);
+                setSelectedCustomers([]);
+                setSelectAllCustomers(false);
+                setCustomMessage('');
+                setSelectedTemplate('');
+            }, 5000);
+        } finally {
+            setSendingMessages(false);
+        }
+    };
     
     // Function to fetch customer data from backend
     const fetchCustomerData = async () => {
@@ -1063,11 +1306,11 @@
             
             // More specific error messages
             if (error.message.includes('Failed to fetch')) {
-                alert('❌ Network error: Unable to connect to server. Please check if the Django server is running on port 8000.');
+                alert('Network error: Unable to connect to server. Please check if the Django server is running on port 8000.');
             } else if (error.message.includes('HTTP error')) {
-                alert(`❌ Server error: ${error.message}. Please check the server logs.`);
+                alert(`Server error: ${error.message}. Please check the server logs.`);
             } else {
-                alert(`❌ Download failed: ${error.message}. Please try again or check the console for more details.`);
+                alert(`Download failed: ${error.message}. Please try again or check the console for more details.`);
             }
         } finally {
             setStockLoading(false);
@@ -1139,9 +1382,9 @@
     const result = await saveStoreSettings();
     if (result.success) {
     setShowStoreSettings(false);
-    alert(`✅ ${result.message}`);
+    alert(`${result.message}`);
     } else {
-    alert(`❌ Failed to save settings: ${result.message}`);
+    alert(`Failed to save settings: ${result.message}`);
     }
     };
 
@@ -1149,9 +1392,9 @@
     const result = await saveStoreSettings();
     if (result.success) {
     setShowThemeSettings(false);
-    alert(`✅ ${result.message}`);
+    alert(`${result.message}`);
     } else {
-    alert(`❌ Failed to save theme: ${result.message}`);
+    alert(`Failed to save theme: ${result.message}`);
     }
     };
 
@@ -2363,7 +2606,7 @@
     const result = await saveWhatsAppSettings();
     if (result.success) {
     setShowOutOfStockSettings(false);
-    alert('✅ WhatsApp alert settings saved successfully!');
+    alert('WhatsApp alert settings saved successfully!');
     } else {
     alert(`❌ Failed to save settings: ${result.message}`);
     }
@@ -2574,7 +2817,7 @@
     const result = await saveManagerProfile();
     if (result.success) {
     setShowProfileSettings(false);
-    alert('✅ Manager profile saved successfully!');
+    alert('Manager profile saved successfully!');
     } else {
     alert(`❌ Failed to save profile: ${result.message}`);
     }
@@ -2665,6 +2908,285 @@
     </div>
     </div>
     );
+    };
+
+    // =============================================================================
+    // PROMOTIONAL MESSAGES MODAL
+    // =============================================================================
+    
+    const renderPromotionalMessagesModal = () => {
+        if (!showPromotionalMessages) return null;
+
+        // Success animation modal
+        if (messageSent) {
+            const isSuccess = messageResult?.success !== false;
+            const iconColor = isSuccess ? "text-green-500" : "text-red-500";
+            const iconPath = isSuccess 
+                ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
+                : "M6 18L18 6M6 6l12 12";
+
+            return (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className={`rounded-xl p-8 max-w-lg w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border text-center`}>
+                        <div className="animate-bounce text-6xl mb-4">
+                            <svg className={`w-16 h-16 mx-auto ${iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconPath} />
+                            </svg>
+                        </div>
+                        
+                        {isSuccess ? (
+                            <>
+                                <h3 className={`text-2xl font-bold mb-4 ${theme.text}`}>
+                                    {messageResult?.failedCount > 0 ? 'Messages Sent (Partial Success)' : 'Messages Sent Successfully!'}
+                                </h3>
+                                <div className={`${theme.textSecondary} space-y-2`}>
+                                    <div className="grid grid-cols-3 gap-4 text-lg font-medium">
+                                        <div>
+                                            <span className="text-green-500">{messageResult?.successCount || 0}</span>
+                                            <p className="text-sm">Successful</p>
+                                        </div>
+                                        <div>
+                                            <span className="text-red-500">{messageResult?.failedCount || 0}</span>
+                                            <p className="text-sm">Failed</p>
+                                        </div>
+                                        <div>
+                                            <span className={theme.text}>{messageResult?.totalCount || 0}</span>
+                                            <p className="text-sm">Total</p>
+                                        </div>
+                                    </div>
+                                    {messageResult?.failedCount > 0 && (
+                                        <p className="text-sm text-yellow-500 mt-4">
+                                            Some messages failed to send. Check server logs for details.
+                                        </p>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <h3 className={`text-2xl font-bold mb-4 ${theme.text}`}>
+                                    Failed to Send Messages
+                                </h3>
+                                <p className={`${theme.textSecondary} text-lg`}>
+                                    {messageResult?.error || 'An error occurred while sending messages.'}
+                                </p>
+                            </>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className={`rounded-xl p-4 md:p-8 w-full max-w-5xl shadow-2xl max-h-[90vh] overflow-y-auto backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 className={`text-xl md:text-2xl font-bold ${theme.text}`}>
+                                Send Promotional Messages
+                            </h3>
+                            <p className={`text-sm ${theme.textSecondary} mt-1`}>
+                                Select customers and send promotional messages
+                            </p>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            className={`rounded-lg ${theme.border} ${theme.text} hover:bg-purple-500/10 p-2`}
+                            onClick={() => setShowPromotionalMessages(false)}
+                        >
+                            ✕ Close
+                        </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Left Panel - Customer Selection */}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className={`text-lg font-semibold ${theme.text}`}>
+                                    📱 Select Customers
+                                </h4>
+                                <div className={`text-sm ${theme.textSecondary}`}>
+                                    {selectedCustomers.length} of {customerData.filter(c => c.contactNumber && c.contactNumber.trim() !== '').length} selected
+                                </div>
+                            </div>
+
+                            {/* Select All Button */}
+                            <div className={`flex items-center justify-between p-3 rounded-lg ${theme.gradientOverlay} ${theme.border} border`}>
+                                <div className="flex items-center space-x-3">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectAllCustomers}
+                                        onChange={handleSelectAllCustomers}
+                                        className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                    />
+                                    <span className={`font-semibold ${theme.text}`}>
+                                        Select All Customers
+                                    </span>
+                                </div>
+                                <GradientBadge variant="primary" size="sm">
+                                    {customerData.filter(c => c.contactNumber && c.contactNumber.trim() !== '').length} Total
+                                </GradientBadge>
+                            </div>
+
+                            {/* Customer List */}
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {customerLoading ? (
+                                    <div className="text-center py-8">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                                        <p className={`mt-2 ${theme.textSecondary}`}>Loading customers...</p>
+                                    </div>
+                                ) : customerData.filter(customer => customer.contactNumber && customer.contactNumber.trim() !== '').length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <svg className="w-12 h-12 mx-auto mb-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        <p className={`${theme.textSecondary}`}>No customers with contact numbers found</p>
+                                    </div>
+                                ) : (
+                                    customerData
+                                        .filter(customer => customer.contactNumber && customer.contactNumber.trim() !== '')
+                                        .map((customer, index) => (
+                                            <div 
+                                                key={customer._id || index}
+                                                className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                                                    selectedCustomers.includes(customer._id)
+                                                        ? `${theme.cardBg} ${theme.border} ring-2 ring-blue-500/50 bg-blue-500/5`
+                                                        : `${theme.cardBg} ${theme.border} hover:bg-blue-500/5`
+                                                }`}
+                                                onClick={() => handleCustomerSelection(customer._id)}
+                                            >
+                                                <div className="flex items-center space-x-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedCustomers.includes(customer._id)}
+                                                        onChange={() => handleCustomerSelection(customer._id)}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                                                    />
+                                                    <div>
+                                                        <div className={`font-medium ${theme.text}`}>
+                                                            {customer.name}
+                                                        </div>
+                                                        <div className={`text-sm ${theme.textSecondary}`}>
+                                                            📞 {customer.contactNumber}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="px-3 py-1 text-xs"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setSelectedCustomers([customer._id]);
+                                                        setSelectAllCustomers(false);
+                                                    }}
+                                                >
+                                                    Send
+                                                </Button>
+                                            </div>
+                                        ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Right Panel - Message Composition */}
+                        <div className="space-y-4">
+                            <h4 className={`text-lg font-semibold ${theme.text}`}>
+                                ✍️ Compose Message
+                            </h4>
+
+                            {/* Message Templates */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+                                    📋 Ready-made Templates
+                                </label>
+                                <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                                    {messageTemplates.map((template) => (
+                                        <button
+                                            key={template.id}
+                                            onClick={() => handleTemplateSelection(template)}
+                                            className={`p-2 text-left rounded-lg border text-sm transition-all duration-200 ${
+                                                selectedTemplate === template.id
+                                                    ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                                    : `${theme.cardBg} ${theme.border} ${theme.textSecondary} hover:bg-blue-500/5`
+                                            }`}
+                                        >
+                                            <div className="font-medium">{template.title}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Custom Message */}
+                            <div>
+                                <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+                                    💬 Your Message
+                                </label>
+                                <textarea
+                                    value={customMessage}
+                                    onChange={(e) => {
+                                        setCustomMessage(e.target.value);
+                                        setSelectedTemplate(''); // Clear template selection when editing
+                                    }}
+                                    placeholder="Type your promotional message here..."
+                                    className={`w-full px-4 py-3 rounded-lg border h-32 resize-none transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
+                                />
+                                <div className={`text-xs ${theme.textSecondary} mt-1`}>
+                                    Characters: {customMessage.length} / 160 (recommended for SMS)
+                                </div>
+                            </div>
+
+                            {/* Message Preview */}
+                            {customMessage && (
+                                <div className="space-y-2">
+                                    <label className={`block text-sm font-medium ${theme.textSecondary}`}>
+                                        👀 Preview
+                                    </label>
+                                    <div className={`p-3 rounded-lg border bg-gray-50 ${theme.border}`}>
+                                        <div className="text-sm text-gray-700">
+                                            {customMessage}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Send Button */}
+                            <div className="pt-4">
+                                <GradientButton
+                                    variant="primary"
+                                    className="w-full py-3 px-6 text-lg"
+                                    onClick={sendPromotionalMessages}
+                                    disabled={sendingMessages || selectedCustomers.length === 0 || !customMessage.trim()}
+                                >
+                                    {sendingMessages ? (
+                                        <div className="flex items-center justify-center">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                            Sending Messages...
+                                        </div>
+                                    ) : (
+                                        <>
+                                            📤 Send to {selectedCustomers.length} Customer{selectedCustomers.length > 1 ? 's' : ''}
+                                        </>
+                                    )}
+                                </GradientButton>
+                                
+                                {selectedCustomers.length === 0 && (
+                                    <p className={`text-xs ${theme.textSecondary} text-center mt-2`}>
+                                        Please select at least one customer to send messages
+                                    </p>
+                                )}
+                                
+                                {!customMessage.trim() && selectedCustomers.length > 0 && (
+                                    <p className={`text-xs ${theme.textSecondary} text-center mt-2`}>
+                                        Please enter a message or select a template
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
     };
 
     // =============================================================================
@@ -2982,6 +3504,8 @@
                 handleReportClick(action);
             } else if (feature.title === "View Customer Data") {
                 handleCustomerClick(action);
+            } else if (feature.title === "Send Promotional Messages" && action === "Send Now") {
+                handlePromotionalMessages();
             } else if (feature.title === "Settings" && (action === "Store Name" || action === "Store Theme" || action === "Profile" || action === "Stock Alerts")) {
                 handleSettingsClick(action);
             }
@@ -3058,6 +3582,7 @@
     {renderStoreSettingsModal()}
     {renderThemeSettingsModal()}
     {renderProfileSettingsModal()}
+    {renderPromotionalMessagesModal()}
     {renderCustomerProfilesModal()}
     {renderExportOptionsModal()}
 

@@ -301,7 +301,7 @@ return (
             ) : currentTheme === 'halloween' ? (
             <span className="text-xs">🎃</span>
             ) : currentTheme === 'cyberpunk' ? (
-            <span className="text-xs">🌟</span>
+            <span className="text-xs"></span>
             ) : currentTheme === 'diwali' ? (
             <span className="text-xs">🪔</span>
             ) : (
@@ -498,7 +498,7 @@ return (
         </span>
         {currentTheme === 'christmas' && <span className="text-xl">🎅</span>}
         {currentTheme === 'halloween' && <span className="text-xl">👻</span>}
-        {currentTheme === 'cyberpunk' && <span className="text-xl">🌟</span>}
+        {currentTheme === 'cyberpunk' && <span className="text-xl"></span>}
         {currentTheme === 'diwali' && <span className="text-xl">🪔</span>}
     </div>
     <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-400')}`}>

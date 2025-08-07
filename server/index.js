@@ -1,3 +1,6 @@
+// Load environment variables first
+require('dotenv').config();
+
 const express = require("express");
 const bodyParser = require('body-parser');
 const cors = require("cors");
@@ -5,8 +8,8 @@ const AuthRouter = require('./Routes/AuthRouter');
 const ProfileRouter = require('./Routes/ProfileRouter');
 const ManagerRouter = require('./Routes/ManagerRouter');
 const CustomerRouter = require('./Routes/CustomerRoutes');
+const SmsRouter = require('./Routes/SmsRoutes');
 
-require('dotenv').config();
 require('./Models/db');
 
 const app = express();
@@ -29,6 +32,7 @@ app.use('/auth', AuthRouter);
 app.use('/profile', ProfileRouter);
 app.use('/manager', ManagerRouter);
 app.use('/api/customers', CustomerRouter);
+app.use('/api/sms', SmsRouter);
 
 
 // Start server

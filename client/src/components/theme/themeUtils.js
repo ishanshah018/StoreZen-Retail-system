@@ -6,7 +6,7 @@ export const getThemeEmoji = (currentTheme) => {
     case 'halloween':
       return '🎃';
     case 'cyberpunk':
-      return '🌟';
+      return '';
     case 'diwali':
       return '🪔';
     default:
