@@ -22,7 +22,7 @@ GradientBadge
 // Icons
 import {
     User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
-    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus
+    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle
 } from "lucide-react";
 
 // Utilities and API
@@ -148,6 +148,16 @@ const [smartCoinsError, setSmartCoinsError] = useState(""); // Smart Coins error
 
 // Feedback modal states
 const [showFeedbackModal, setShowFeedbackModal] = useState(false); // Feedback modal toggle
+
+// Wishlist states
+const [showWishlistModal, setShowWishlistModal] = useState(false); // Wishlist modal toggle
+const [wishlistItems, setWishlistItems] = useState([]);         // User's wishlist items
+const [wishlistLoading, setWishlistLoading] = useState(false); // Wishlist loading state
+const [wishlistProductStatus, setWishlistProductStatus] = useState({}); // Track which products are in wishlist
+
+// Notification states
+const [notification, setNotification] = useState({ show: false, message: '', type: '' }); // Clean notification system
+const [showConfirmClear, setShowConfirmClear] = useState(false); // Confirmation for clear wishlist
 const [feedbackRating, setFeedbackRating] = useState(0); // Selected star rating
 const [feedbackCategories, setFeedbackCategories] = useState([]); // Selected feedback categories
 const [feedbackText, setFeedbackText] = useState(''); // Optional feedback text
@@ -442,6 +452,186 @@ const submitFeedback = async () => {
 };
 
 // =============================================================================
+// WISHLIST FUNCTIONALITY
+// =============================================================================
+
+/** Fetch user's wishlist items */
+const fetchWishlistItems = async () => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    setWishlistLoading(true);
+    try {
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.wishlist.get}/${userId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            setWishlistItems(result.data);
+            
+            // Update wishlist status for products
+            const statusMap = {};
+            result.data.forEach(item => {
+                statusMap[item.productId] = true;
+            });
+            setWishlistProductStatus(statusMap);
+        }
+    } catch (error) {
+        // Error fetching wishlist
+    } finally {
+        setWishlistLoading(false);
+    }
+};
+
+/** Add item to wishlist */
+const addToWishlist = async (product) => {
+    const userId = localStorage.getItem('userId');
+    
+    if (!userId) {
+        showNotification('Please login to add items to wishlist', 'error');
+        return;
+    }
+
+    // Show loading state
+    const originalButton = document.activeElement;
+    if (originalButton) {
+        originalButton.disabled = true;
+        originalButton.textContent = 'Adding...';
+    }
+
+    try {
+        const requestData = {
+            userId,
+            productId: product.id,
+            productName: product.name,
+            productCategory: product.category,
+            productPrice: parseFloat(product.price),
+            isInStock: product.in_stock || false
+        };
+
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}/api/wishlist/add`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update local state
+            setWishlistProductStatus(prev => ({
+                ...prev,
+                [product.id]: true
+            }));
+            
+            // Update wishlist items count
+            fetchWishlistItems();
+            
+            showNotification('Item added to wishlist successfully', 'success');
+        } else {
+            showNotification(result.message || 'Failed to add item to wishlist', 'error');
+        }
+    } catch (error) {
+        showNotification('Failed to connect to server. Please try again.', 'error');
+    } finally {
+        // Restore button state
+        if (originalButton) {
+            originalButton.disabled = false;
+            originalButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg> Add to Wishlist';
+        }
+    }
+};
+
+/** Remove item from wishlist */
+const removeFromWishlist = async (productId) => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    try {
+        const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.wishlist.remove}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userId,
+                productId
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update local state
+            setWishlistProductStatus(prev => {
+                const updated = { ...prev };
+                delete updated[productId];
+                return updated;
+            });
+            
+            // Remove from wishlist items
+            setWishlistItems(prev => prev.filter(item => item.productId !== productId));
+            
+            showNotification('Item removed from wishlist', 'success');
+        } else {
+            showNotification(result.message || 'Failed to remove item from wishlist', 'error');
+        }
+    } catch (error) {
+        showNotification('Failed to connect to server. Please try again.', 'error');
+    }
+};
+
+/** Show wishlist modal */
+const showWishlistView = () => {
+    setShowWishlistModal(true);
+    fetchWishlistItems();
+};
+
+/** Check wishlist status when products are loaded */
+useEffect(() => {
+    if (products.length > 0) {
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+            fetchWishlistItems();
+        }
+    }
+}, [products]);
+
+// =============================================================================
+// NOTIFICATION HELPER
+// =============================================================================
+
+/** Show clean notification */
+const showNotification = (message, type = 'info') => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+        setNotification({ show: false, message: '', type: '' });
+    }, 3000);
+};
+
+/** Clear entire wishlist */
+const handleClearWishlist = async () => {
+    const userId = localStorage.getItem('userId');
+    if (userId) {
+        try {
+            const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.wishlist.clear}/${userId}`, {
+                method: 'DELETE'
+            });
+            const result = await response.json();
+            if (result.success) {
+                setWishlistItems([]);
+                setWishlistProductStatus({});
+                showNotification('Wishlist cleared successfully', 'success');
+            }
+        } catch (error) {
+            showNotification('Failed to clear wishlist', 'error');
+        }
+    }
+    setShowConfirmClear(false);
+};
+
+// =============================================================================
 // EVENT HANDLERS
 // =============================================================================
 
@@ -566,8 +756,8 @@ const supportFeatures = [
     category: "support",
     },
     {
-    title: "Wishlist Unavailable Items",
-    description: "Get notified when out-of-stock items become available",
+    title: "See Your Wishlisted Items",
+    description: "View all your saved out-of-stock items in one place",
     icon: Heart,
     color: "from-rose-500 to-pink-500",
     category: "support",
@@ -604,7 +794,7 @@ const getCategoryTitle = (category) => {
     profile: "Profile Management",
     shopping: "Shopping Experience",
     billing: "Billing & Rewards",
-    support: "Support & Services",
+    support: "Wishlist & Feedback",
     insights: "Smart Insights",
     };
     return titles[category];
@@ -798,16 +988,20 @@ return (
                 {filteredProducts.map((product) => (
                 <Card
                     key={product.id}
-                    className={`group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${themeStyles.cardBg} border border-gray-200/20 hover:${themeStyles.hoverBg} hover:shadow-blue-500/15 hover:border-blue-300/30`}
+                    className={`group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 ${themeStyles.cardBg} border border-gray-200/20 hover:${themeStyles.hoverBg} hover:shadow-blue-500/15 hover:border-blue-300/30 ${!product.in_stock ? 'opacity-75 grayscale-50' : ''}`}
                 >
                     <CardHeader className="pb-4">
                     <div className="flex justify-between items-start mb-2">
                         <CardTitle className={`text-lg font-semibold ${themeStyles.text} line-clamp-2`}>
                         {product.name}
                         </CardTitle>
-                        {product.in_stock && (
+                        {product.in_stock ? (
                         <span className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium px-2 py-1 rounded-full">
                             Available
+                        </span>
+                        ) : (
+                        <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium px-2 py-1 rounded-full">
+                            OUT OF STOCK
                         </span>
                         )}
                     </div>
@@ -818,11 +1012,41 @@ return (
                     </div>
                     </CardHeader>
                     <CardContent className="pt-0">
-                    <div className="text-center">
+                    <div className="text-center mb-4">
                         <span className={`text-2xl font-bold ${themeStyles.text}`}>
                         ₹{parseFloat(product.price).toLocaleString('en-IN')}
                         </span>
                     </div>
+                    
+                    {/* Add to Wishlist Button - ONLY for OUT OF STOCK items */}
+                    {!product.in_stock && (
+                        <div className="flex justify-center">
+                            <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                
+                                // Check if already in wishlist
+                                if (wishlistProductStatus[product.id]) {
+                                    showNotification('This item is already in your wishlist', 'warning');
+                                    return;
+                                }
+                                
+                                // Add to wishlist
+                                addToWishlist(product);
+                            }}
+                            className={
+                                wishlistProductStatus[product.id]
+                                ? 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 cursor-not-allowed border border-green-200 dark:border-green-800'
+                                : 'flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400 hover:bg-pink-200 dark:hover:bg-pink-900/50 border border-pink-200 dark:border-pink-800 hover:border-pink-300'
+                            }
+                            >
+                            <Heart 
+                                className={`w-4 h-4 ${wishlistProductStatus[product.id] ? 'fill-current' : ''}`} 
+                            />
+                            {wishlistProductStatus[product.id] ? '✅ Already in Wishlist' : 'Add to Wishlist'}
+                            </button>
+                        </div>
+                    )}
                     </CardContent>
                 </Card>
                 ))}
@@ -1057,6 +1281,8 @@ return (
                 showSmartCoinsView();
                 } else if (feature.title === "Submit Feedback for Store") {
                 showFeedbackView();
+                } else if (feature.title === "See Your Wishlisted Items") {
+                showWishlistView();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -1800,6 +2026,207 @@ return (
                 </div>
             )}
             
+            </div>
+        </div>
+        </div>
+    )}
+    
+    {/* Wishlist Modal */}
+    {showWishlistModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className={`w-full max-w-4xl max-h-[80vh] ${themeStyles.cardBg} rounded-lg shadow-xl border ${themeStyles.border} overflow-hidden`}>
+            {/* Modal Header */}
+            <div className={`px-6 py-4 border-b ${themeStyles.border} flex justify-between items-center`}>
+            <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-pink-100 dark:bg-pink-900/30">
+                <Heart className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+                </div>
+                <div>
+                <h2 className={`text-2xl font-bold ${themeStyles.text}`}>Your Wishlist</h2>
+                <p className={`text-sm ${themeStyles.textSecondary}`}>
+                    {wishlistItems.length} item{wishlistItems.length !== 1 ? 's' : ''} saved
+                </p>
+                </div>
+            </div>
+            <button
+                onClick={() => setShowWishlistModal(false)}
+                className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${themeStyles.text}`}
+            >
+                <X className="w-6 h-6" />
+            </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
+            {wishlistLoading ? (
+                <div className="flex items-center justify-center py-20">
+                <Loader2 className={`w-8 h-8 animate-spin ${themeStyles.text}`} />
+                <span className={`ml-3 ${themeStyles.textSecondary}`}>Loading your wishlist...</span>
+                </div>
+            ) : wishlistItems.length === 0 ? (
+                <div className="text-center py-20">
+                <Heart className={`w-16 h-16 mx-auto mb-4 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-400')}`} />
+                <h3 className={`text-xl font-semibold ${themeStyles.text} mb-2`}>Your wishlist is empty</h3>
+                <p className={`${themeStyles.textSecondary} mb-6`}>
+                    Start adding products you love to your wishlist!
+                </p>
+                <button
+                    onClick={() => {
+                    setShowWishlistModal(false);
+                    fetchProducts();
+                    }}
+                    className="px-6 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors"
+                >
+                    Browse Products
+                </button>
+                </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {wishlistItems.map((item) => (
+                    <div
+                    key={item._id}
+                    className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-lg p-4 hover:shadow-lg transition-all duration-300 ${!item.isInStock ? 'opacity-75 grayscale-50' : ''}`}
+                    >
+                    {/* Product Info */}
+                    <div className="mb-4">
+                        <div className="flex justify-between items-start mb-2">
+                        <h3 className={`font-semibold ${themeStyles.text} line-clamp-2`}>{item.productName}</h3>
+                        {item.isInStock ? (
+                            <span className="bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium px-2 py-1 rounded-full">
+                            Available
+                            </span>
+                        ) : (
+                            <span className="bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium px-2 py-1 rounded-full">
+                            OUT OF STOCK
+                            </span>
+                        )}
+                        </div>
+                        
+                        <div className="flex items-center justify-between mb-2">
+                        <span className={`text-sm px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 ${themeStyles.textSecondary}`}>
+                            {item.productCategory}
+                        </span>
+                        <span className={`text-lg font-bold ${themeStyles.text}`}>
+                            ₹{parseFloat(item.productPrice).toLocaleString('en-IN')}
+                        </span>
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                        <button
+                        onClick={() => removeFromWishlist(item.productId)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors border border-red-200 dark:border-red-800"
+                        >
+                        <Heart className="w-4 h-4 fill-current" />
+                        Remove
+                        </button>
+                        
+                        {item.isInStock && (
+                        <button
+                            onClick={() => {
+                            showNotification('Add to Cart feature coming soon!', 'info');
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors border border-blue-200 dark:border-blue-800"
+                        >
+                            <ShoppingCart className="w-4 h-4" />
+                            Add to Cart
+                        </button>
+                        )}
+                    </div>
+                    
+                    {/* Added date */}
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <p className={`text-xs ${themeStyles.textSecondary}`}>
+                        Added {new Date(item.addedAt).toLocaleDateString()}
+                        </p>
+                    </div>
+                    </div>
+                ))}
+                </div>
+            )}
+            </div>
+
+            {/* Modal Footer */}
+            {wishlistItems.length > 0 && (
+            <div className={`px-6 py-4 border-t ${themeStyles.border} flex justify-between items-center`}>
+                <button
+                onClick={() => setShowConfirmClear(true)}
+                className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                Clear All
+                </button>
+                
+                <button
+                onClick={() => setShowWishlistModal(false)}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                >
+                Close
+                </button>
+            </div>
+            )}
+        </div>
+        </div>
+    )}
+    
+    {/* =============================================================================
+        NOTIFICATION MODAL
+        ============================================================================= */}
+    {notification.show && (
+        <div className="fixed top-4 right-4 z-50 animate-bounce">
+        <div className={`p-4 rounded-lg shadow-lg border-l-4 min-w-72 max-w-sm transition-all duration-300 ${
+            notification.type === 'success' 
+            ? 'bg-green-50 border-green-500 text-green-700' 
+            : notification.type === 'error'
+            ? 'bg-red-50 border-red-500 text-red-700'
+            : 'bg-yellow-50 border-yellow-500 text-yellow-700'
+        }`}>
+            <div className="flex justify-between items-start">
+            <div className="flex items-center">
+                {notification.type === 'success' && <CheckCircle className="h-5 w-5 mr-2" />}
+                {notification.type === 'error' && <XCircle className="h-5 w-5 mr-2" />}
+                {notification.type === 'warning' && <AlertCircle className="h-5 w-5 mr-2" />}
+                <p className="font-medium">{notification.message}</p>
+            </div>
+            <button 
+                onClick={() => setNotification({ show: false, message: '', type: 'success' })}
+                className="ml-4 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+                <X className="h-4 w-4" />
+            </button>
+            </div>
+        </div>
+        </div>
+    )}
+    
+    {/* =============================================================================
+        CONFIRMATION MODAL FOR CLEAR WISHLIST
+        ============================================================================= */}
+    {showConfirmClear && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm mx-4">
+            <div className="flex items-center mb-4">
+            <AlertCircle className="h-6 w-6 text-red-500 mr-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Clear Wishlist
+            </h3>
+            </div>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+            Are you sure you want to clear your entire wishlist? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+            <button
+                onClick={() => setShowConfirmClear(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+                Cancel
+            </button>
+            <button
+                onClick={handleClearWishlist}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+            >
+                Clear All
+            </button>
             </div>
         </div>
         </div>

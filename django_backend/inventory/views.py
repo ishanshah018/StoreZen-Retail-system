@@ -83,13 +83,14 @@ class ProductViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 def customer_products(request):
     """
-    Get products for customer view - excludes sensitive data like demand_level
+    Get products for customer view - shows ALL products (in-stock and out-of-stock)
+    Excludes sensitive data like demand_level
     """
     category = request.GET.get('category')
     if category:
-        products = Product.objects.filter(in_stock=True, category=category)
+        products = Product.objects.filter(category=category)
     else:
-        products = Product.objects.filter(in_stock=True)
+        products = Product.objects.all()
     serializer = CustomerProductSerializer(products, many=True)
     return Response(serializer.data)
 
@@ -97,9 +98,9 @@ def customer_products(request):
 @api_view(['GET'])
 def get_categories(request):
     """
-    Get all unique product categories for customer filtering
+    Get all unique product categories (includes categories of out-of-stock products)
     """
-    categories = Product.objects.filter(in_stock=True).values_list('category', flat=True).distinct()
+    categories = Product.objects.all().values_list('category', flat=True).distinct()
     return Response(list(categories))
 
 
