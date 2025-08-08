@@ -132,6 +132,14 @@ const [showProducts, setShowProducts] = useState(false); // Product view toggle
 const [loading, setLoading] = useState(false);          // Loading state
 const [error, setError] = useState("");                 // Error message
 
+// Coupon modal states
+const [showCouponModal, setShowCouponModal] = useState(false); // Coupon modal toggle
+const [coupons, setCoupons] = useState([]);             // All coupons
+const [couponsLoading, setCouponsLoading] = useState(false); // Coupon loading state
+const [couponsError, setCouponsError] = useState("");   // Coupon error message
+const [copyMessage, setCopyMessage] = useState('');     // Copy success message
+const [showCopyMessage, setShowCopyMessage] = useState(false); // Show copy message modal
+
 // =============================================================================
 // LIFECYCLE EFFECTS
 // =============================================================================
@@ -191,6 +199,77 @@ const fetchProducts = async (category = "") => {
     console.error('Error fetching products:', err);
     } finally {
     setLoading(false);
+    }
+};
+
+/** Fetch coupons from Node.js backend */
+const fetchCoupons = async () => {
+    setCouponsLoading(true);
+    setCouponsError("");
+
+    try {
+        const response = await fetch('http://localhost:8080/api/coupons/active');
+        if (!response.ok) {
+            throw new Error('Failed to fetch coupons');
+        }
+        
+        const data = await response.json();
+        if (data.success) {
+            setCoupons(data.coupons);
+            setShowCouponModal(true);
+        } else {
+            setCouponsError('Unable to load coupons');
+        }
+    } catch (err) {
+        setCouponsError('Unable to connect to server. Please try again.');
+        console.error('Error fetching coupons:', err);
+    } finally {
+        setCouponsLoading(false);
+    }
+};
+
+/** Get coupon status based on current date */
+const getCouponStatus = (coupon) => {
+    const now = new Date();
+    const validFrom = new Date(coupon.valid_from);
+    const validUntil = new Date(coupon.valid_until);
+    
+    if (now < validFrom) {
+        return { status: 'upcoming', label: 'Upcoming', color: 'text-blue-600', bgColor: 'bg-blue-100' };
+    } else if (now > validUntil) {
+        return { status: 'expired', label: 'Expired', color: 'text-red-600', bgColor: 'bg-red-100' };
+    } else {
+        return { status: 'active', label: 'Active', color: 'text-green-600', bgColor: 'bg-green-100' };
+    }
+};
+
+/** Copy coupon code to clipboard */
+const copyCouponCode = async (code) => {
+    try {
+        await navigator.clipboard.writeText(code);
+        setCopyMessage(`Coupon code "${code}" copied to clipboard!`);
+        setShowCopyMessage(true);
+        
+        // Hide message after 3 seconds
+        setTimeout(() => {
+            setShowCopyMessage(false);
+        }, 3000);
+    } catch (err) {
+        console.error('Failed to copy:', err);
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = code;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopyMessage(`Coupon code "${code}" copied to clipboard!`);
+        setShowCopyMessage(true);
+        
+        // Hide message after 3 seconds
+        setTimeout(() => {
+            setShowCopyMessage(false);
+        }, 3000);
     }
 };
 
@@ -807,6 +886,8 @@ return (
                 console.log("Viewing", feature.title);
                 if (feature.title === "View Products") {
                 fetchProducts();
+                } else if (feature.title === "View Coupons at Store") {
+                fetchCoupons();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -958,6 +1039,203 @@ return (
             </div>
             </div>
             
+        </div>
+        </div>
+    )}
+
+    {/* =============================================================================
+        COUPON MODAL - Perfect UI/UX in Modal
+        ============================================================================= */}
+    {showCouponModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className={`${themeStyles.cardBg} rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
+            
+            {/* Modal Header */}
+            <div className={`p-6 border-b ${themeStyles.border} flex items-center justify-between`}>
+            <div className="flex items-center space-x-3">
+                <Ticket className="w-8 h-8 text-purple-600" />
+                <h2 className={`text-2xl font-bold ${themeStyles.text}`}>Store Coupons & Offers</h2>
+            </div>
+            <button
+                onClick={() => setShowCouponModal(false)}
+                className={`p-2 rounded-lg ${themeStyles.hoverBg} hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors`}
+            >
+                <ArrowLeft className="w-6 h-6" />
+            </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 max-h-[calc(90vh-120px)] overflow-y-auto">
+            
+            {/* Loading State */}
+            {couponsLoading && (
+                <div className="flex justify-center items-center py-20">
+                <div className="text-center">
+                    <Loader2 className={`h-12 w-12 animate-spin mx-auto mb-4 ${themeStyles.accent}`} />
+                    <p className={`text-lg ${themeStyles.text}`}>Loading amazing deals...</p>
+                </div>
+                </div>
+            )}
+
+            {/* Error State */}
+            {couponsError && (
+                <div className="text-center py-20">
+                <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-red-600 mb-2">Oops! Something went wrong</h3>
+                <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} mb-6`}>{couponsError}</p>
+                <button
+                    onClick={() => fetchCoupons()}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg transition-colors"
+                >
+                    Try Again
+                </button>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!couponsLoading && !couponsError && coupons.length === 0 && (
+                <div className="text-center py-20">
+                <Ticket className={`h-16 w-16 mx-auto mb-4 ${themeStyles.text.replace('text-', 'text-').replace('-900', '-400')}`} />
+                <h3 className={`text-xl font-semibold ${themeStyles.text} mb-2`}>No Coupons Available</h3>
+                <p className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
+                    Check back later for exciting new offers!
+                </p>
+                </div>
+            )}
+
+            {/* Coupons Grid - Perfect Square Cards */}
+            {!couponsLoading && !couponsError && coupons.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {coupons.map((coupon) => {
+                    const status = getCouponStatus(coupon);
+                    const validUntil = new Date(coupon.valid_until);
+                    const today = new Date();
+                    const daysRemaining = Math.ceil((validUntil - today) / (1000 * 60 * 60 * 24));
+
+                    return (
+                    <div
+                        key={coupon._id}
+                        className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 relative`}
+                    >
+                        {/* Status Badge */}
+                        <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-semibold ${status.bgColor} ${status.color}`}>
+                        {status.label}
+                        </div>
+
+                        {/* Coupon Code */}
+                        <div className="mb-4 text-center">
+                        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 rounded-lg">
+                            <div className="text-xl font-bold tracking-wider">{coupon.coupon_code}</div>
+                        </div>
+                        </div>
+
+                        {/* Discount Value */}
+                        <div className="mb-4 text-center">
+                        <div className="text-3xl font-bold text-purple-600 mb-1">
+                            {coupon.type === '%' ? `${coupon.value}%` : `₹${coupon.value}`}
+                        </div>
+                        <div className={`text-sm ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>
+                            {coupon.type === '%' ? 'Percentage Off' : 'Flat Discount'}
+                        </div>
+                        </div>
+
+                        {/* Coupon Details */}
+                        <div className="space-y-2 mb-4 text-sm">
+                        {coupon.type === '%' && (
+                            <div className="flex justify-between">
+                            <span className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>Max Discount:</span>
+                            <span className={`font-semibold ${themeStyles.text}`}>₹{coupon.max_discount}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between">
+                            <span className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>Min Purchase:</span>
+                            <span className={`font-semibold ${themeStyles.text}`}>₹{coupon.min_purchase}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className={`${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')}`}>Valid Until:</span>
+                            <span className={`font-semibold ${themeStyles.text}`}>
+                            {validUntil.toLocaleDateString()}
+                            </span>
+                        </div>
+                        
+                        {/* Days Remaining Warning */}
+                        {status.status === 'active' && daysRemaining <= 7 && (
+                            <div className="text-center">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
+                                {daysRemaining === 0 ? 'Expires Today!' : daysRemaining === 1 ? 'Expires Tomorrow!' : `${daysRemaining} days left!`}
+                            </span>
+                            </div>
+                        )}
+                        </div>
+
+                        {/* Categories - Fixed Visibility */}
+                        <div className="mb-4">
+                        <div className={`text-xs font-medium ${themeStyles.text.replace('text-', 'text-').replace('-900', '-600')} mb-2`}>
+                            Applicable Categories:
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                            {coupon.applicable_categories.slice(0, 3).map((category) => (
+                            <span 
+                                key={category}
+                                className="px-2 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 text-xs rounded-full font-medium border border-blue-200 dark:border-blue-700"
+                            >
+                                {category}
+                            </span>
+                            ))}
+                            {coupon.applicable_categories.length > 3 && (
+                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded-full font-medium border border-gray-200 dark:border-gray-600">
+                                +{coupon.applicable_categories.length - 3} more
+                            </span>
+                            )}
+                        </div>
+                        </div>
+
+                        {/* Use Coupon Button - No Emojis */}
+                        <button
+                        onClick={() => {
+                            if (status.status === 'active') {
+                                copyCouponCode(coupon.coupon_code);
+                            }
+                        }}
+                        disabled={status.status === 'expired' || status.status === 'upcoming'}
+                        className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-200 ${
+                            status.status === 'expired'
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : status.status === 'upcoming'
+                            ? 'bg-gray-500 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-green-500/50 transform hover:scale-105'
+                        }`}
+                        >
+                        {status.status === 'expired' 
+                            ? 'Expired' 
+                            : status.status === 'upcoming'
+                            ? 'Coming Soon'
+                            : 'Use Coupon'
+                        }
+                        </button>
+                    </div>
+                    );
+                })}
+                </div>
+            )}
+
+            </div>
+        </div>
+        </div>
+    )}
+
+    {/* =============================================================================
+        COPY SUCCESS MODAL - Small Modal Message
+        ============================================================================= */}
+    {showCopyMessage && (
+        <div className="fixed inset-0 flex items-center justify-center z-[60] pointer-events-none">
+        <div className="bg-green-500 text-white px-6 py-4 rounded-lg shadow-xl transform animate-bounce pointer-events-auto">
+            <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                <div className="w-2 h-4 border-r-2 border-b-2 border-green-500 transform rotate-45"></div>
+            </div>
+            <span className="font-medium">{copyMessage}</span>
+            </div>
         </div>
         </div>
     )}
