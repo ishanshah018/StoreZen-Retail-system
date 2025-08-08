@@ -138,7 +138,7 @@ function Login() {
                 body: JSON.stringify(loginInfo)
             });
             const result = await response.json();
-            const { success, message, jwtToken, name, error } = result;
+            const { success, message, jwtToken, name, userId, error } = result;
             
             // Clear the safety timeout since we got a response
             clearTimeout(timeoutId);
@@ -152,6 +152,7 @@ function Login() {
                 localStorage.setItem('token', jwtToken);
                 localStorage.setItem('loggedInUser', name);
                 localStorage.setItem('customerName', name);
+                localStorage.setItem('userId', userId);
                 
                 // Show success message
                 handleSuccess(message);

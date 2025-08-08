@@ -22,7 +22,7 @@ GradientBadge
 // Icons
 import {
     User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
-    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search
+    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus
 } from "lucide-react";
 
 // Utilities and API
@@ -140,6 +140,12 @@ const [couponsError, setCouponsError] = useState("");   // Coupon error message
 const [copyMessage, setCopyMessage] = useState('');     // Copy success message
 const [showCopyMessage, setShowCopyMessage] = useState(false); // Show copy message modal
 
+// Smart Coins modal states
+const [showSmartCoinsModal, setShowSmartCoinsModal] = useState(false); // Smart Coins modal toggle
+const [smartCoinsData, setSmartCoinsData] = useState(null); // Smart Coins data
+const [smartCoinsLoading, setSmartCoinsLoading] = useState(false); // Smart Coins loading state
+const [smartCoinsError, setSmartCoinsError] = useState(""); // Smart Coins error message
+
 // =============================================================================
 // LIFECYCLE EFFECTS
 // =============================================================================
@@ -163,8 +169,7 @@ const fetchCategories = async () => {
     const categories = await response.json();
     setCategories(categories);
     } catch (error) {
-    console.error('Error fetching categories:', error);
-    setCategories(['Electronics', 'Fashion', 'Home & Garden']); // Fallback
+    setCategories(['Electronics', 'Fashion', 'Home & Garden']); // Fallback categories
     }
 };
 
@@ -196,7 +201,6 @@ const fetchProducts = async (category = "") => {
     }
     } catch (err) {
     setError('Unable to load products. Please try again.');
-    console.error('Error fetching products:', err);
     } finally {
     setLoading(false);
     }
@@ -222,7 +226,6 @@ const fetchCoupons = async () => {
         }
     } catch (err) {
         setCouponsError('Unable to connect to server. Please try again.');
-        console.error('Error fetching coupons:', err);
     } finally {
         setCouponsLoading(false);
     }
@@ -255,7 +258,6 @@ const copyCouponCode = async (code) => {
             setShowCopyMessage(false);
         }, 3000);
     } catch (err) {
-        console.error('Failed to copy:', err);
         // Fallback for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = code;
@@ -271,6 +273,49 @@ const copyCouponCode = async (code) => {
             setShowCopyMessage(false);
         }, 3000);
     }
+};
+
+/** Fetch Smart Coins data from server */
+const fetchSmartCoins = async () => {
+    setSmartCoinsLoading(true);
+    setSmartCoinsError("");
+    
+    try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            setSmartCoinsError('User not found. Please login again.');
+            return;
+        }
+
+        const response = await fetch(`http://localhost:8080/api/smartcoins/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                setSmartCoinsData(result.data);
+            } else {
+                setSmartCoinsError(result.message || 'Failed to fetch Smart Coins data');
+            }
+        } else {
+            const errorData = await response.json();
+            setSmartCoinsError(errorData.message || 'Failed to fetch Smart Coins data');
+        }
+    } catch (error) {
+        setSmartCoinsError('Failed to connect to server. Please try again.');
+    } finally {
+        setSmartCoinsLoading(false);
+    }
+};
+
+/** Show Smart Coins modal and fetch data */
+const showSmartCoinsView = () => {
+    setShowSmartCoinsModal(true);
+    fetchSmartCoins();
 };
 
 // =============================================================================
@@ -743,7 +788,6 @@ return (
                                 navigate('/profile');
                             } else {
                                 // User not authenticated, redirect to login
-                                console.log("User not authenticated, redirecting to login");
                                 navigate('/login');
                             }
                         } else if (feature.title === "View Products") {
@@ -880,14 +924,14 @@ return (
             e.stopPropagation(); // Prevent card click
             if (feature.special) {
                 // Handle AI Assistant launch
-                console.log("Launching AI Assistant");
             } else {
                 // Handle View action
-                console.log("Viewing", feature.title);
                 if (feature.title === "View Products") {
                 fetchProducts();
                 } else if (feature.title === "View Coupons at Store") {
                 fetchCoupons();
+                } else if (feature.title === "View Smart Coins") {
+                showSmartCoinsView();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -897,7 +941,6 @@ return (
                     navigate('/profile');
                 } else {
                     // User not authenticated, redirect to login
-                    console.log("User not authenticated, redirecting to login");
                     navigate('/login');
                 }
                 }
@@ -1235,6 +1278,211 @@ return (
                 <div className="w-2 h-4 border-r-2 border-b-2 border-green-500 transform rotate-45"></div>
             </div>
             <span className="font-medium">{copyMessage}</span>
+            </div>
+        </div>
+        </div>
+    )}
+
+    {/* =============================================================================
+        SMART COINS MODAL - Professional Design
+        ============================================================================= */}
+    {showSmartCoinsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl transition-all duration-300 ${
+            currentTheme !== 'light' 
+            ? 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50' 
+            : 'bg-gradient-to-br from-white to-gray-50 border border-gray-200/50'
+        }`}>
+            
+            {/* Modal Header */}
+            <div className={`sticky top-0 z-10 p-6 border-b backdrop-blur-md ${
+            currentTheme !== 'light' 
+                ? 'border-gray-700/50 bg-gray-900/80' 
+                : 'border-gray-200/50 bg-white/80'
+            }`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-full bg-gradient-to-r from-yellow-500 to-amber-500 shadow-lg">
+                    <Coins className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                    <h2 className={`text-2xl font-bold bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent`}>
+                    Smart Coins
+                    </h2>
+                    <p className={`text-sm ${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Your Digital Rewards
+                    </p>
+                </div>
+                </div>
+                
+                <button
+                onClick={() => setShowSmartCoinsModal(false)}
+                className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                    currentTheme !== 'light' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                }`}
+                >
+                <X className="h-6 w-6" />
+                </button>
+            </div>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6">
+            
+            {/* Loading State */}
+            {smartCoinsLoading && (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-4 border-yellow-500 border-t-transparent"></div>
+                <p className={`text-lg font-medium ${currentTheme !== 'light' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Loading your Smart Coins...
+                </p>
+                </div>
+            )}
+            
+            {/* Error State */}
+            {smartCoinsError && (
+                <div className="text-center py-12">
+                <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30 w-fit mx-auto mb-4">
+                    <AlertCircle className="h-8 w-8 text-red-500" />
+                </div>
+                <p className="text-red-500 font-medium mb-2">Error Loading Smart Coins</p>
+                <p className={`${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'} mb-4`}>
+                    {smartCoinsError}
+                </p>
+                <button
+                    onClick={fetchSmartCoins}
+                    className="bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-600 hover:to-amber-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-yellow-500/50"
+                >
+                    Retry
+                </button>
+                </div>
+            )}
+            
+            {/* Smart Coins Data */}
+            {!smartCoinsLoading && !smartCoinsError && smartCoinsData && (
+                <div className="space-y-6">
+                
+                {/* Balance Card */}
+                <div className={`rounded-xl p-6 border shadow-lg ${
+                    currentTheme !== 'light' 
+                    ? 'bg-gradient-to-br from-yellow-900/20 to-amber-900/20 border-yellow-700/30' 
+                    : 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200/50'
+                }`}>
+                    <div className="text-center">
+                    <h3 className={`text-lg font-medium mb-2 ${currentTheme !== 'light' ? 'text-gray-300' : 'text-gray-700'}`}>
+                        Current Balance
+                    </h3>
+                    <div className="text-5xl font-bold bg-gradient-to-r from-yellow-500 to-amber-600 bg-clip-text text-transparent mb-2">
+                        {smartCoinsData.balance || 0}
+                    </div>
+                    <p className={`text-sm ${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Smart Coins Available
+                    </p>
+                    </div>
+                </div>
+                
+                {/* Transaction History */}
+                <div>
+                    <h3 className={`text-xl font-semibold mb-4 ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                    Recent Transactions
+                    </h3>
+                    
+                    {smartCoinsData.transactions && smartCoinsData.transactions.length > 0 ? (
+                    <div className="space-y-3">
+                        {smartCoinsData.transactions
+                        .sort((a, b) => new Date(b.earnedDate) - new Date(a.earnedDate))
+                        .slice(0, 10) // Show last 10 transactions
+                        .map((transaction, index) => {
+                            const isEarned = transaction.type === 'earned';
+                            const isExpiring = transaction.expiryDate && 
+                            new Date(transaction.expiryDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+                            
+                            return (
+                            <div key={index} className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-md ${
+                                currentTheme !== 'light' 
+                                ? 'bg-gray-800/50 border-gray-700/50 hover:bg-gray-800/70' 
+                                : 'bg-white border-gray-200 hover:bg-gray-50'
+                            }`}>
+                                <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                    <div className={`p-2 rounded-full ${
+                                    isEarned 
+                                        ? 'bg-green-500/20 text-green-500' 
+                                        : 'bg-red-500/20 text-red-500'
+                                    }`}>
+                                    {isEarned ? (
+                                        <Plus className="h-4 w-4" />
+                                    ) : (
+                                        <Minus className="h-4 w-4" />
+                                    )}
+                                    </div>
+                                    
+                                    <div>
+                                    <p className={`font-medium ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                                        {transaction.description || `Smart Coins ${isEarned ? 'Earned' : 'Spent'}`}
+                                    </p>
+                                    <div className="flex items-center space-x-2 text-sm">
+                                        <span className={currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'}>
+                                        {new Date(transaction.earnedDate).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                        </span>
+                                        {isEarned && transaction.expiryDate && (
+                                        <>
+                                            <span className={currentTheme !== 'light' ? 'text-gray-600' : 'text-gray-400'}>•</span>
+                                            <span className={`${
+                                            isExpiring 
+                                                ? 'text-orange-500 font-medium' 
+                                                : currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'
+                                            }`}>
+                                            Expires: {new Date(transaction.expiryDate).toLocaleDateString('en-US', {
+                                                month: 'short',
+                                                day: 'numeric',
+                                                year: 'numeric'
+                                            })}
+                                            </span>
+                                            {isExpiring && (
+                                            <span className="px-2 py-1 text-xs bg-orange-500/20 text-orange-500 rounded-full">
+                                                Expiring Soon
+                                            </span>
+                                            )}
+                                        </>
+                                        )}
+                                    </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="text-right">
+                                    <span className={`text-lg font-bold ${
+                                    isEarned ? 'text-green-500' : 'text-red-500'
+                                    }`}>
+                                    {isEarned ? '+' : '-'}{Math.abs(transaction.amount)}
+                                    </span>
+                                </div>
+                                </div>
+                            </div>
+                            );
+                        })}
+                    </div>
+                    ) : (
+                    <div className={`text-center py-8 rounded-lg border-2 border-dashed ${
+                        currentTheme !== 'light' 
+                        ? 'border-gray-700 text-gray-400' 
+                        : 'border-gray-300 text-gray-600'
+                    }`}>
+                        <Coins className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p className="font-medium mb-1">No transactions yet</p>
+                        <p className="text-sm">Start earning Smart Coins by shopping and engaging with stores!</p>
+                    </div>
+                    )}
+                </div>
+                </div>
+            )}
+            
             </div>
         </div>
         </div>

@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const UserModel = require("../Models/User");
+const SmartCoinsController = require('./SmartCoinsController');
 
 
 const signup = async (req, res) => {
@@ -11,9 +12,24 @@ const signup = async (req, res) => {
             return res.status(409)
                 .json({ message: 'User is already exist, you can login', success: false });
         }
-        const userModel = new UserModel({ name, email, password });
+        const userModel = new UserModel({ 
+            name, 
+            email, 
+            password,
+            smartCoins: {
+                balance: 50, // Welcome bonus
+                transactions: [{
+                    amount: 50,
+                    type: 'earned',
+                    description: 'Welcome Bonus - Thank you for joining StoreZen!',
+                    earnedDate: new Date(),
+                    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+                }]
+            }
+        });
         userModel.password = await bcrypt.hash(password, 10);
         await userModel.save();
+
         res.status(201)
             .json({
                 message: "Signup successfully",
@@ -62,7 +78,8 @@ const login = async (req, res) => {
                 success: true,
                 jwtToken,
                 email,
-                name: user.name
+                name: user.name,
+                userId: user._id
             })
     } catch (err) {
         res.status(500)
