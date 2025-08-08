@@ -21,7 +21,7 @@ const signup = async (req, res) => {
                 transactions: [{
                     amount: 50,
                     type: 'earned',
-                    description: 'Welcome Bonus - Thank you for joining StoreZen!',
+                    description: 'Welcome Bonus - New User Reward',
                     earnedDate: new Date(),
                     expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
                 }]

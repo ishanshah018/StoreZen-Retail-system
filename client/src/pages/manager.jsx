@@ -177,6 +177,18 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     const [messageSent, setMessageSent] = useState(false);
     const [messageResult, setMessageResult] = useState(null); // Store success/error details
 
+    // =============================================================================
+    // FEEDBACK MANAGEMENT STATES
+    // =============================================================================
+    const [showFeedbackManagement, setShowFeedbackManagement] = useState(false);
+    const [showAllFeedbacks, setShowAllFeedbacks] = useState(false);
+    const [showFeedbackAnalytics, setShowFeedbackAnalytics] = useState(false);
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [feedbackError, setFeedbackError] = useState('');
+    const [analyticsData, setAnalyticsData] = useState(null);
+    const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
     // Manager profile data
     const [managerProfile, setManagerProfile] = useState({
         id: null,
@@ -976,6 +988,106 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     const capitalizedValue = capitalizeWords(value);
     setNewProduct({...newProduct, category: capitalizedValue});
     validateCategory(capitalizedValue);
+    };
+
+    // =============================================================================
+    // FEEDBACK MANAGEMENT FUNCTIONS
+    // =============================================================================
+
+    /** Fetch all customer feedbacks */
+    const fetchAllFeedbacks = async () => {
+        setFeedbackLoading(true);
+        setFeedbackError('');
+        
+        try {
+            const response = await fetch('http://localhost:8080/api/feedback/all');
+            const result = await response.json();
+            
+            if (result.success) {
+                setFeedbacks(result.data.feedbacks || []);
+            } else {
+                setFeedbackError(result.message || 'Failed to fetch feedbacks');
+            }
+        } catch (error) {
+            setFeedbackError('Failed to connect to server. Please try again.');
+        } finally {
+            setFeedbackLoading(false);
+        }
+    };
+
+    /** Generate feedback analytics */
+    const generateFeedbackAnalytics = async () => {
+        setAnalyticsLoading(true);
+        setFeedbackError('');
+        
+        try {
+            const response = await fetch('http://localhost:8080/api/feedback/all');
+            const result = await response.json();
+            
+            if (result.success) {
+                const feedbacks = result.data.feedbacks || [];
+                
+                // Calculate analytics data
+                const analytics = {
+                    totalFeedbacks: feedbacks.length,
+                    averageRating: feedbacks.length > 0 
+                        ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1)
+                        : 0,
+                    ratingDistribution: {
+                        1: feedbacks.filter(f => f.rating === 1).length,
+                        2: feedbacks.filter(f => f.rating === 2).length,
+                        3: feedbacks.filter(f => f.rating === 3).length,
+                        4: feedbacks.filter(f => f.rating === 4).length,
+                        5: feedbacks.filter(f => f.rating === 5).length,
+                    },
+                    categoryAnalysis: {}
+                };
+
+                // Count category occurrences
+                const categoryCount = {};
+                feedbacks.forEach(feedback => {
+                    if (feedback.feedbackCategories && feedback.feedbackCategories.length > 0) {
+                        feedback.feedbackCategories.forEach(cat => {
+                            if (cat.selected && cat.category) {
+                                categoryCount[cat.category] = (categoryCount[cat.category] || 0) + 1;
+                            }
+                        });
+                    }
+                });
+
+                // Convert to sorted array for display
+                analytics.categoryAnalysis = Object.entries(categoryCount)
+                    .sort(([,a], [,b]) => b - a)
+                    .map(([category, count]) => ({
+                        category: category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        count: count,
+                        percentage: ((count / feedbacks.length) * 100).toFixed(1)
+                    }));
+
+                setAnalyticsData(analytics);
+            } else {
+                setFeedbackError(result.message || 'Failed to generate analytics');
+            }
+        } catch (error) {
+            setFeedbackError('Failed to connect to server. Please try again.');
+        } finally {
+            setAnalyticsLoading(false);
+        }
+    };
+
+    /** Show feedback management view */
+    const showFeedbackView = (view) => {
+        setShowFeedbackManagement(true);
+        
+        if (view === 'all') {
+            setShowAllFeedbacks(true);
+            setShowFeedbackAnalytics(false);
+            fetchAllFeedbacks();
+        } else if (view === 'analytics') {
+            setShowAllFeedbacks(false);
+            setShowFeedbackAnalytics(true);
+            generateFeedbackAnalytics();
+        }
     };
 
     // Function to add new product
@@ -3556,6 +3668,12 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                     setCouponMode('view');
                     setShowCouponManagement(true);
                 }
+            } else if (feature.title === "View Feedbacks from Customers") {
+                if (action === "View All") {
+                    showFeedbackView('all');
+                } else if (action === "Analytics") {
+                    showFeedbackView('analytics');
+                }
             } else if (feature.title === "Settings" && (action === "Store Name" || action === "Store Theme" || action === "Profile" || action === "Stock Alerts")) {
                 handleSettingsClick(action);
             }
@@ -3644,6 +3762,380 @@ import CouponManagement from '../components/CouponManagement';    // ===========
             theme={theme}
             onClose={() => setShowCouponManagement(false)}
         />
+    )}
+
+    {/* =============================================================================
+        FEEDBACK MANAGEMENT MODALS
+        ============================================================================= */}
+    
+    {/* Feedback Management Main Modal */}
+    {showFeedbackManagement && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`w-full max-w-6xl max-h-[95vh] overflow-y-auto rounded-2xl shadow-2xl transition-all duration-300 ${theme.cardBg} border ${theme.border}`}>
+            
+            {/* Modal Header */}
+            <div className={`sticky top-0 z-10 p-6 border-b backdrop-blur-md ${theme.border} ${theme.cardBg}/80`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 shadow-lg">
+                    <Send className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                    <h2 className={`text-2xl font-bold bg-gradient-to-r from-rose-500 to-pink-600 bg-clip-text text-transparent`}>
+                    Customer Feedback Management
+                    </h2>
+                    <p className={`text-sm ${theme.textSecondary}`}>
+                    {showAllFeedbacks ? 'All Customer Feedbacks' : 'Feedback Analytics & Insights'}
+                    </p>
+                </div>
+                </div>
+                
+                <button
+                onClick={() => {
+                    setShowFeedbackManagement(false);
+                    setShowAllFeedbacks(false);
+                    setShowFeedbackAnalytics(false);
+                }}
+                className={`p-2 rounded-full hover:${theme.hoverBg} transition-colors duration-200 ${theme.textSecondary}`}
+                >
+                <ArrowLeft className="h-6 w-6" />
+                </button>
+            </div>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6">
+            
+            {/* View All Feedbacks */}
+            {showAllFeedbacks && (
+                <div>
+                {feedbackLoading && (
+                    <div className="flex justify-center items-center py-12">
+                    <div className="text-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-rose-500 border-t-transparent mx-auto"></div>
+                        <p className={`text-lg font-medium ${theme.text}`}>Loading feedbacks...</p>
+                    </div>
+                    </div>
+                )}
+                
+                {feedbackError && (
+                    <div className="text-center py-12">
+                    <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30 w-fit mx-auto mb-4">
+                        <AlertTriangle className="h-8 w-8 text-red-500" />
+                    </div>
+                    <p className="text-red-500 font-medium mb-2">Error Loading Feedbacks</p>
+                    <p className={`${theme.textSecondary} mb-4`}>{feedbackError}</p>
+                    <button
+                        onClick={fetchAllFeedbacks}
+                        className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-rose-500/50"
+                    >
+                        Retry
+                    </button>
+                    </div>
+                )}
+                
+                {!feedbackLoading && !feedbackError && feedbacks.length === 0 && (
+                    <div className="text-center py-12">
+                    <Send className={`h-16 w-16 mx-auto mb-4 ${theme.textSecondary}`} />
+                    <h3 className={`text-xl font-semibold ${theme.text} mb-2`}>No Feedbacks Yet</h3>
+                    <p className={`${theme.textSecondary}`}>
+                        Customer feedbacks will appear here once submitted.
+                    </p>
+                    </div>
+                )}
+                
+                {!feedbackLoading && !feedbackError && feedbacks.length > 0 && (
+                    <div>
+                    <div className="mb-6 flex items-center justify-between">
+                        <h3 className={`text-xl font-semibold ${theme.text}`}>
+                        All Customer Feedbacks ({feedbacks.length})
+                        </h3>
+                        <div className="flex items-center space-x-2 text-sm">
+                        <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className={theme.textSecondary}>5★</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                            <span className={theme.textSecondary}>4★</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                            <span className={theme.textSecondary}>3★</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-red-400 rounded-full"></div>
+                            <span className={theme.textSecondary}>2★</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                            <div className="w-3 h-3 bg-red-600 rounded-full"></div>
+                            <span className={theme.textSecondary}>1★</span>
+                        </div>
+                        </div>
+                    </div>
+                    
+                    {/* Feedbacks Table */}
+                    <div className="overflow-x-auto">
+                        <table className={`w-full border-collapse border ${theme.border} rounded-lg overflow-hidden`}>
+                        <thead className={`${theme.hoverBg}`}>
+                            <tr>
+                            <th className={`border ${theme.border} px-4 py-3 text-left font-semibold ${theme.text}`}>Customer</th>
+                            <th className={`border ${theme.border} px-4 py-3 text-center font-semibold ${theme.text}`}>Rating</th>
+                            <th className={`border ${theme.border} px-4 py-3 text-left font-semibold ${theme.text}`}>Categories</th>
+                            <th className={`border ${theme.border} px-4 py-3 text-left font-semibold ${theme.text}`}>Comments</th>
+                            <th className={`border ${theme.border} px-4 py-3 text-center font-semibold ${theme.text}`}>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {feedbacks.map((feedback, index) => (
+                            <tr key={feedback._id} className={`${index % 2 === 0 ? theme.cardBg : theme.hoverBg} hover:${theme.hoverBg} transition-colors duration-150`}>
+                                {/* Customer Info */}
+                                <td className={`border ${theme.border} px-4 py-3`}>
+                                <div className="space-y-1">
+                                    <p className={`font-medium ${theme.text}`}>{feedback.userName}</p>
+                                    <p className={`text-sm ${theme.textSecondary}`}>{feedback.userEmail}</p>
+                                </div>
+                                </td>
+                                
+                                {/* Rating */}
+                                <td className={`border ${theme.border} px-4 py-3 text-center`}>
+                                <div className="flex items-center justify-center space-x-1">
+                                    <span className={`text-2xl font-bold ${
+                                    feedback.rating === 5 ? 'text-green-500' :
+                                    feedback.rating === 4 ? 'text-yellow-500' :
+                                    feedback.rating === 3 ? 'text-orange-500' :
+                                    feedback.rating === 2 ? 'text-red-400' :
+                                    'text-red-600'
+                                    }`}>
+                                    {feedback.rating}
+                                    </span>
+                                    <span className="text-yellow-400">★</span>
+                                </div>
+                                </td>
+                                
+                                {/* Categories */}
+                                <td className={`border ${theme.border} px-4 py-3`}>
+                                {feedback.feedbackCategories && feedback.feedbackCategories.length > 0 ? (
+                                    <div className="space-y-1">
+                                    {feedback.feedbackCategories
+                                        .filter(cat => cat.selected)
+                                        .map((cat, i) => (
+                                        <span key={i} className={`inline-block px-2 py-1 text-xs rounded-full mr-1 mb-1 ${
+                                            feedback.rating <= 2 ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                                            feedback.rating === 3 ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                        }`}>
+                                            {cat.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                        </span>
+                                        ))
+                                    }
+                                    </div>
+                                ) : (
+                                    <span className={`text-sm ${theme.textSecondary} italic`}>No categories selected</span>
+                                )}
+                                </td>
+                                
+                                {/* Comments */}
+                                <td className={`border ${theme.border} px-4 py-3`}>
+                                {feedback.feedbackText ? (
+                                    <p className={`text-sm ${theme.text} max-w-xs truncate`} title={feedback.feedbackText}>
+                                    {feedback.feedbackText}
+                                    </p>
+                                ) : (
+                                    <span className={`text-sm ${theme.textSecondary} italic`}>No comments</span>
+                                )}
+                                </td>
+                                
+                                {/* Date */}
+                                <td className={`border ${theme.border} px-4 py-3 text-center`}>
+                                <div className="text-sm">
+                                    <p className={theme.text}>
+                                    {new Date(feedback.submittedAt).toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                    })}
+                                    </p>
+                                    <p className={theme.textSecondary}>
+                                    {new Date(feedback.submittedAt).toLocaleTimeString('en-US', {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })}
+                                    </p>
+                                </div>
+                                </td>
+                            </tr>
+                            ))}
+                        </tbody>
+                        </table>
+                    </div>
+                    </div>
+                )}
+                </div>
+            )}
+            
+            {/* Feedback Analytics */}
+            {showFeedbackAnalytics && (
+                <div>
+                {analyticsLoading && (
+                    <div className="flex justify-center items-center py-12">
+                    <div className="text-center space-y-4">
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-rose-500 border-t-transparent mx-auto"></div>
+                        <p className={`text-lg font-medium ${theme.text}`}>Generating analytics...</p>
+                    </div>
+                    </div>
+                )}
+                
+                {feedbackError && (
+                    <div className="text-center py-12">
+                    <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30 w-fit mx-auto mb-4">
+                        <AlertTriangle className="h-8 w-8 text-red-500" />
+                    </div>
+                    <p className="text-red-500 font-medium mb-2">Error Generating Analytics</p>
+                    <p className={`${theme.textSecondary} mb-4`}>{feedbackError}</p>
+                    <button
+                        onClick={generateFeedbackAnalytics}
+                        className="bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-rose-500/50"
+                    >
+                        Retry
+                    </button>
+                    </div>
+                )}
+                
+                {!analyticsLoading && !feedbackError && analyticsData && (
+                    <div className="space-y-8">
+                    
+                    {/* Overview Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Card className={`${theme.cardBg} border ${theme.border} shadow-lg`}>
+                        <CardContent className="p-6 text-center">
+                            <div className="text-4xl font-bold text-blue-600 mb-2">{analyticsData.totalFeedbacks}</div>
+                            <div className={`text-sm font-medium ${theme.textSecondary}`}>Total Feedbacks</div>
+                        </CardContent>
+                        </Card>
+                        
+                        <Card className={`${theme.cardBg} border ${theme.border} shadow-lg`}>
+                        <CardContent className="p-6 text-center">
+                            <div className="text-4xl font-bold text-green-600 mb-2">{analyticsData.averageRating}★</div>
+                            <div className={`text-sm font-medium ${theme.textSecondary}`}>Average Rating</div>
+                        </CardContent>
+                        </Card>
+                        
+                        <Card className={`${theme.cardBg} border ${theme.border} shadow-lg`}>
+                        <CardContent className="p-6 text-center">
+                            <div className="text-4xl font-bold text-purple-600 mb-2">
+                            {analyticsData.categoryAnalysis.length > 0 ? analyticsData.categoryAnalysis[0].count : 0}
+                            </div>
+                            <div className={`text-sm font-medium ${theme.textSecondary}`}>Top Issue Count</div>
+                        </CardContent>
+                        </Card>
+                    </div>
+                    
+                    {/* Rating Distribution */}
+                    <Card className={`${theme.cardBg} border ${theme.border} shadow-lg`}>
+                        <CardHeader>
+                        <CardTitle className={`${theme.text} flex items-center space-x-2`}>
+                            <BarChart className="h-5 w-5 text-blue-600" />
+                            <span>Rating Distribution</span>
+                        </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                        <div className="space-y-4">
+                            {[5, 4, 3, 2, 1].map((rating) => {
+                            const count = analyticsData.ratingDistribution[rating];
+                            const percentage = analyticsData.totalFeedbacks > 0 
+                                ? ((count / analyticsData.totalFeedbacks) * 100).toFixed(1)
+                                : 0;
+                            
+                            return (
+                                <div key={rating} className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2 w-16">
+                                    <span className={`font-medium ${theme.text}`}>{rating}</span>
+                                    <span className="text-yellow-400">★</span>
+                                </div>
+                                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative overflow-hidden">
+                                    <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${
+                                        rating === 5 ? 'bg-green-500' :
+                                        rating === 4 ? 'bg-yellow-500' :
+                                        rating === 3 ? 'bg-orange-500' :
+                                        rating === 2 ? 'bg-red-400' :
+                                        'bg-red-600'
+                                    }`}
+                                    style={{ width: `${percentage}%` }}
+                                    ></div>
+                                    <div className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${
+                                    percentage > 50 ? 'text-white' : theme.text
+                                    }`}>
+                                    {count} ({percentage}%)
+                                    </div>
+                                </div>
+                                </div>
+                            );
+                            })}
+                        </div>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Category Analysis */}
+                    <Card className={`${theme.cardBg} border ${theme.border} shadow-lg`}>
+                        <CardHeader>
+                        <CardTitle className={`${theme.text} flex items-center space-x-2`}>
+                            <TrendingUp className="h-5 w-5 text-rose-600" />
+                            <span>Top Issues & Improvement Areas</span>
+                        </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                        {analyticsData.categoryAnalysis.length > 0 ? (
+                            <div className="space-y-4">
+                            {analyticsData.categoryAnalysis.slice(0, 10).map((category, index) => (
+                                <div key={category.category} className="flex items-center justify-between p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
+                                <div className="flex items-center space-x-4">
+                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
+                                    index === 0 ? 'bg-red-500' :
+                                    index === 1 ? 'bg-orange-500' :
+                                    index === 2 ? 'bg-yellow-500' :
+                                    'bg-gray-500'
+                                    }`}>
+                                    {index + 1}
+                                    </div>
+                                    <div>
+                                    <h4 className={`font-medium ${theme.text}`}>{category.category}</h4>
+                                    <p className={`text-sm ${theme.textSecondary}`}>
+                                        {category.percentage}% of all feedback mentions this issue
+                                    </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className={`text-2xl font-bold ${
+                                    index === 0 ? 'text-red-500' :
+                                    index === 1 ? 'text-orange-500' :
+                                    index === 2 ? 'text-yellow-500' :
+                                    'text-gray-500'
+                                    }`}>
+                                    {category.count}
+                                    </div>
+                                    <div className={`text-xs ${theme.textSecondary}`}>mentions</div>
+                                </div>
+                                </div>
+                            ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                            <BarChart className={`h-16 w-16 mx-auto mb-4 ${theme.textSecondary}`} />
+                            <p className={`${theme.textSecondary}`}>No category data available yet.</p>
+                            </div>
+                        )}
+                        </CardContent>
+                    </Card>
+                    </div>
+                )}
+                </div>
+            )}
+            
+            </div>
+        </div>
+        </div>
     )}
 
     {/* PDF Download Success Modal */}

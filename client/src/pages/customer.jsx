@@ -146,6 +146,15 @@ const [smartCoinsData, setSmartCoinsData] = useState(null); // Smart Coins data
 const [smartCoinsLoading, setSmartCoinsLoading] = useState(false); // Smart Coins loading state
 const [smartCoinsError, setSmartCoinsError] = useState(""); // Smart Coins error message
 
+// Feedback modal states
+const [showFeedbackModal, setShowFeedbackModal] = useState(false); // Feedback modal toggle
+const [feedbackRating, setFeedbackRating] = useState(0); // Selected star rating
+const [feedbackCategories, setFeedbackCategories] = useState([]); // Selected feedback categories
+const [feedbackText, setFeedbackText] = useState(''); // Optional feedback text
+const [feedbackLoading, setFeedbackLoading] = useState(false); // Feedback submission loading
+const [feedbackError, setFeedbackError] = useState(''); // Feedback error message
+const [feedbackSuccess, setFeedbackSuccess] = useState(false); // Feedback success state
+
 // =============================================================================
 // LIFECYCLE EFFECTS
 // =============================================================================
@@ -316,6 +325,120 @@ const fetchSmartCoins = async () => {
 const showSmartCoinsView = () => {
     setShowSmartCoinsModal(true);
     fetchSmartCoins();
+};
+
+// =============================================================================
+// FEEDBACK FUNCTIONS
+// =============================================================================
+
+/** Feedback category definitions based on rating */
+const getFeedbackCategories = (rating) => {
+    const categories = {
+        1: [
+            { key: 'product_quality_issues', label: 'Product Quality Issues' },
+            { key: 'website_problems', label: 'Website Problems' },
+            { key: 'other_issues', label: 'Other Issues' },
+            { key: 'poor_billing_facility', label: 'Poor Billing Facility' }
+        ],
+        2: [
+            { key: 'product_quality', label: 'Product Quality' },
+            { key: 'pricing_concerns', label: 'Pricing Concerns' },
+            { key: 'smart_coins_redemption_issues', label: 'Smart Coins Redemption Issues' },
+            { key: 'website_experience', label: 'Website Experience' },
+            { key: 'others', label: 'Others' }
+        ],
+        3: [
+            { key: 'product_availability', label: 'Product Availability' },
+            { key: 'checkout_process', label: 'Checkout Process' },
+            { key: 'chatbot_issues', label: 'Chatbot Issues' },
+            { key: 'others', label: 'Others' }
+        ],
+        4: [
+            { key: 'user_interface', label: 'User Interface' },
+            { key: 'lagging_issues', label: 'Lagging Issues' },
+            { key: 'out_of_stock_items', label: 'Out of Stock Items' },
+            { key: 'others', label: 'Others' }
+        ]
+    };
+    return categories[rating] || [];
+};
+
+/** Show feedback modal */
+const showFeedbackView = () => {
+    setShowFeedbackModal(true);
+    setFeedbackRating(0);
+    setFeedbackCategories([]);
+    setFeedbackText('');
+    setFeedbackError('');
+    setFeedbackSuccess(false);
+};
+
+/** Handle star rating selection */
+const handleStarRating = (rating) => {
+    setFeedbackRating(rating);
+    setFeedbackCategories([]); // Reset categories when rating changes
+};
+
+/** Handle feedback category selection */
+const handleCategoryToggle = (categoryKey) => {
+    setFeedbackCategories(prev => {
+        const exists = prev.find(cat => cat.category === categoryKey);
+        if (exists) {
+            // Remove if already selected
+            return prev.filter(cat => cat.category !== categoryKey);
+        } else {
+            // Add if not selected
+            return [...prev, { category: categoryKey, selected: true }];
+        }
+    });
+};
+
+/** Submit feedback */
+const submitFeedback = async () => {
+    if (feedbackRating === 0) {
+        setFeedbackError('Please select a rating');
+        return;
+    }
+
+    setFeedbackLoading(true);
+    setFeedbackError('');
+
+    try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            setFeedbackError('User not found. Please login again.');
+            return;
+        }
+
+        const response = await fetch(`http://localhost:8080/api/feedback/submit/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                rating: feedbackRating,
+                feedbackCategories: feedbackCategories,
+                feedbackText: feedbackText.trim()
+            })
+        });
+
+        const result = await response.json();
+        
+        if (result.success) {
+            setFeedbackSuccess(true);
+            // Auto-close modal after success
+            setTimeout(() => {
+                setShowFeedbackModal(false);
+                setFeedbackSuccess(false);
+            }, 2000);
+        } else {
+            setFeedbackError(result.message || 'Failed to submit feedback');
+        }
+    } catch (error) {
+        setFeedbackError('Failed to connect to server. Please try again.');
+    } finally {
+        setFeedbackLoading(false);
+    }
 };
 
 // =============================================================================
@@ -932,6 +1055,8 @@ return (
                 fetchCoupons();
                 } else if (feature.title === "View Smart Coins") {
                 showSmartCoinsView();
+                } else if (feature.title === "Submit Feedback for Store") {
+                showFeedbackView();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -1480,6 +1605,198 @@ return (
                     </div>
                     )}
                 </div>
+                </div>
+            )}
+            
+            </div>
+        </div>
+        </div>
+    )}
+
+    {/* =============================================================================
+        FEEDBACK MODAL - Professional Star Rating & Category Selection
+        ============================================================================= */}
+    {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl transition-all duration-300 ${
+            currentTheme !== 'light' 
+            ? 'bg-gradient-to-br from-gray-900 to-gray-800 border border-gray-700/50' 
+            : 'bg-gradient-to-br from-white to-gray-50 border border-gray-200/50'
+        }`}>
+            
+            {/* Modal Header */}
+            <div className={`sticky top-0 z-10 p-6 border-b backdrop-blur-md ${
+            currentTheme !== 'light' 
+                ? 'border-gray-700/50 bg-gray-900/80' 
+                : 'border-gray-200/50 bg-white/80'
+            }`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 shadow-lg">
+                    <Send className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                    <h2 className={`text-2xl font-bold bg-gradient-to-r from-orange-500 to-red-600 bg-clip-text text-transparent`}>
+                    Store Feedback
+                    </h2>
+                    <p className={`text-sm ${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Help us improve your experience
+                    </p>
+                </div>
+                </div>
+                
+                <button
+                onClick={() => setShowFeedbackModal(false)}
+                className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
+                    currentTheme !== 'light' ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                }`}
+                >
+                <X className="h-6 w-6" />
+                </button>
+            </div>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-6">
+            
+            {/* Success State */}
+            {feedbackSuccess && (
+                <div className="text-center py-8 space-y-4">
+                <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30 w-fit mx-auto">
+                    <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <div className="w-3 h-5 border-r-2 border-b-2 border-white transform rotate-45"></div>
+                    </div>
+                </div>
+                <h3 className={`text-xl font-bold ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                    Thank You!
+                </h3>
+                <p className={`${currentTheme !== 'light' ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Your feedback has been submitted successfully.
+                </p>
+                </div>
+            )}
+            
+            {/* Feedback Form */}
+            {!feedbackSuccess && (
+                <div className="space-y-6">
+                
+                {/* Star Rating */}
+                <div>
+                    <h3 className={`text-lg font-semibold mb-4 ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                    How would you rate your experience?
+                    </h3>
+                    <div className="flex justify-center space-x-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                        key={star}
+                        onClick={() => handleStarRating(star)}
+                        className={`transition-all duration-200 hover:scale-125 ${
+                            star <= feedbackRating 
+                            ? 'text-yellow-400 hover:text-yellow-500' 
+                            : 'text-gray-300 hover:text-gray-400'
+                        }`}
+                        >
+                        <Star className={`h-8 w-8 ${star <= feedbackRating ? 'fill-current' : ''}`} />
+                        </button>
+                    ))}
+                    </div>
+                    {feedbackRating > 0 && (
+                    <p className={`text-center mt-2 text-sm ${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {feedbackRating === 5 ? 'Excellent! We\'re glad you love us!' :
+                        feedbackRating === 4 ? 'Great! What can we improve?' :
+                        feedbackRating === 3 ? 'Good! Help us do better.' :
+                        feedbackRating === 2 ? 'We can do better. What went wrong?' :
+                        'We\'re sorry! Please tell us what happened.'}
+                    </p>
+                    )}
+                </div>
+                
+                {/* Category Selection (Only for ratings below 5) */}
+                {feedbackRating > 0 && feedbackRating < 5 && (
+                    <div>
+                    <h3 className={`text-lg font-semibold mb-4 ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                        What areas need improvement? (Select all that apply)
+                    </h3>
+                    <div className="space-y-3">
+                        {getFeedbackCategories(feedbackRating).map((category) => {
+                        const isSelected = feedbackCategories.some(cat => cat.category === category.key);
+                        return (
+                            <button
+                            key={category.key}
+                            onClick={() => handleCategoryToggle(category.key)}
+                            className={`w-full p-3 rounded-lg border-2 transition-all duration-200 text-left ${
+                                isSelected 
+                                ? 'border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400' 
+                                : `border-gray-200 dark:border-gray-700 ${currentTheme !== 'light' ? 'text-gray-300 hover:border-gray-600' : 'text-gray-700 hover:border-gray-300'} hover:bg-gray-50 dark:hover:bg-gray-800`
+                            }`}
+                            >
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium">{category.label}</span>
+                                {isSelected && (
+                                <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+                                    <div className="w-2 h-3 border-r-2 border-b-2 border-white transform rotate-45"></div>
+                                </div>
+                                )}
+                            </div>
+                            </button>
+                        );
+                        })}
+                    </div>
+                    </div>
+                )}
+                
+                {/* Optional Text Feedback */}
+                {feedbackRating > 0 && (
+                    <div>
+                    <h3 className={`text-lg font-semibold mb-4 ${currentTheme !== 'light' ? 'text-white' : 'text-gray-900'}`}>
+                        Additional Comments (Optional)
+                    </h3>
+                    <textarea
+                        value={feedbackText}
+                        onChange={(e) => setFeedbackText(e.target.value)}
+                        placeholder="Tell us more about your experience..."
+                        maxLength={1000}
+                        rows={4}
+                        className={`w-full p-3 border rounded-lg resize-none ${
+                        currentTheme !== 'light' 
+                            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400' 
+                            : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                        } focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent`}
+                    />
+                    <div className={`text-right text-xs mt-1 ${currentTheme !== 'light' ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {feedbackText.length}/1000 characters
+                    </div>
+                    </div>
+                )}
+                
+                {/* Error Message */}
+                {feedbackError && (
+                    <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{feedbackError}</p>
+                    </div>
+                )}
+                
+                {/* Submit Button */}
+                {feedbackRating > 0 && (
+                    <button
+                    onClick={submitFeedback}
+                    disabled={feedbackLoading}
+                    className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-all duration-200 ${
+                        feedbackLoading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg hover:shadow-orange-500/50 transform hover:scale-105'
+                    }`}
+                    >
+                    {feedbackLoading ? (
+                        <div className="flex items-center justify-center space-x-2">
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Submitting...</span>
+                        </div>
+                    ) : (
+                        'Submit Feedback'
+                    )}
+                    </button>
+                )}
                 </div>
             )}
             
