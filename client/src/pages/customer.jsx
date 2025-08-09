@@ -173,6 +173,20 @@ const [feedbackSuccess, setFeedbackSuccess] = useState(false); // Feedback succe
 useEffect(() => {
     const savedCustomerName = localStorage.getItem('customerName') || "Guest";
     setCustomerName(savedCustomerName);
+    
+    // Track customer dashboard access - prevent double counting in same session
+    const sessionKey = `dashboardSession_${Date.now()}`;
+    const lastSessionKey = localStorage.getItem('lastDashboardSession');
+    
+    // Only increment if this is a new session (not a React StrictMode double render)
+    if (!sessionStorage.getItem('dashboardCountedThisSession')) {
+        const currentClicks = localStorage.getItem('customerDashboardClicks') || '0';
+        const newClickCount = parseInt(currentClicks) + 1;
+        localStorage.setItem('customerDashboardClicks', newClickCount.toString());
+        
+        // Mark this session as counted
+        sessionStorage.setItem('dashboardCountedThisSession', 'true');
+    }
 }, []);
 
 // =============================================================================

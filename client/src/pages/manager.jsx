@@ -185,6 +185,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     const [showAllFeedbacks, setShowAllFeedbacks] = useState(false);
     const [showFeedbackAnalytics, setShowFeedbackAnalytics] = useState(false);
     const [feedbacks, setFeedbacks] = useState([]);
+    const [customerDashboardClicks, setCustomerDashboardClicks] = useState(0); // Track customer dashboard clicks
     const [feedbackLoading, setFeedbackLoading] = useState(false);
     const [feedbackError, setFeedbackError] = useState('');
     const [analyticsData, setAnalyticsData] = useState(null);
@@ -429,6 +430,15 @@ import CouponManagement from '../components/CouponManagement';    // ===========
 
     // Load stock data for validation
     fetchStockData();
+
+    // Load analytics data for footer display
+    generateFeedbackAnalytics();
+
+    // Load customer dashboard clicks count from localStorage
+    const savedClicks = localStorage.getItem('customerDashboardClicks');
+    if (savedClicks) {
+        setCustomerDashboardClicks(parseInt(savedClicks));
+    }
 
     // Initialize store theme from manager profile when component mounts
     const savedStoreTheme = localStorage.getItem('managerStoreTheme') || 'dark';
@@ -3968,11 +3978,11 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     </h2>
     <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
     <div className="space-y-2">
-    <div className={`text-4xl font-bold ${theme.accent}`}>2,847</div>
+    <div className={`text-4xl font-bold ${theme.accent}`}>{stockData.length}</div>
     <div className={`font-medium ${theme.textSecondary}`}>Active Products</div>
     </div>
     <div className="space-y-2">
-    <div className="text-4xl font-bold text-blue-600">1,234</div>
+    <div className="text-4xl font-bold text-blue-600">{customerDashboardClicks}</div>
     <div className={`font-medium ${theme.textSecondary}`}>Customer Requests</div>
     </div>
     <div className="space-y-2">
@@ -3980,7 +3990,9 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     <div className={`font-medium ${theme.textSecondary}`}>Monthly Revenue</div>
     </div>
     <div className="space-y-2">
-    <div className="text-4xl font-bold text-pink-600">4.8 Stars</div>
+    <div className="text-4xl font-bold text-pink-600">
+        {analyticsData?.averageRating ? `${analyticsData.averageRating}★` : '4.8 Stars'}
+    </div>
     <div className={`font-medium ${theme.textSecondary}`}>Customer Rating</div>
     </div>
     </div>
