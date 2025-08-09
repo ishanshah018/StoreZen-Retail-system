@@ -324,7 +324,7 @@ function Login() {
                                     required
                                     value={loginInfo.email}
                                     onChange={handleChange}
-                                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg ${themeStyles.input} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                                    className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm ${themeStyles.input}`}
                                     placeholder="Enter your email"
                                 />
                             </div>
@@ -347,7 +347,7 @@ function Login() {
                                     required
                                     value={loginInfo.password}
                                     onChange={handleChange}
-                                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg ${themeStyles.input} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                                    className={`block w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm ${themeStyles.input}`}
                                     placeholder="Enter your password"
                                 />
                                 <button

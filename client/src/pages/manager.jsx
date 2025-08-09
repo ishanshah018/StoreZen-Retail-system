@@ -3500,10 +3500,10 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                                                     />
                                                     <div>
                                                         <div className={`font-medium ${hasPromotionsDisabled ? 'text-gray-400' : theme.text}`}>
-                                                            {customer.name}
+                                                            {(customer.name || 'Unknown').replace(/[#]/g, '')}
                                                         </div>
                                                         <div className={`text-sm ${hasPromotionsDisabled ? 'text-gray-400' : theme.textSecondary}`}>
-                                                            📞 {customer.contactNumber}
+                                                            📞 {(customer.contactNumber || 'No contact').replace(/[#]/g, '')}
                                                         </div>
                                                         {hasPromotionsDisabled && (
                                                             <div className="text-xs text-red-500 mt-1">
@@ -3651,11 +3651,11 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                 {/* Customer Name and Email */}
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3">
                     <div>
-                    <h3 className={`text-lg font-semibold ${theme.text}`}>{customer.name}</h3>
-                    <p className={`text-sm ${theme.textSecondary}`}>{customer.email}</p>
+                    <h3 className={`text-lg font-semibold ${theme.text}`}>{(customer.name || 'Unknown').replace(/[#]/g, '')}</h3>
+                    <p className={`text-sm ${theme.textSecondary}`}>{(customer.email || 'No email').replace(/[#]/g, '')}</p>
                     </div>
                     <div className={`text-xs ${theme.accent} mt-2 md:mt-0`}>
-                    Customer #{index + 1}
+                    Customer {index + 1}
                     </div>
                 </div>
                 
@@ -3665,7 +3665,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                     <div className="space-y-2">
                     <h4 className={`text-sm font-medium ${theme.accent}`}>Contact Information</h4>
                     <div className={`text-sm ${theme.textSecondary}`}>
-                        Contact: {customer.contactNumber || 'Not provided'}
+                        Contact: {(customer.contactNumber || 'Not provided').replace(/[#]/g, '')}
                     </div>
                     </div>
                     
@@ -3675,9 +3675,9 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                     <div className={`text-sm ${theme.textSecondary}`}>
                         {customer.address?.street || customer.address?.city || customer.address?.state || customer.address?.pincode ? (
                         <div>
-                            {customer.address.street && <div>Street: {customer.address.street}</div>}
-                            {customer.address.city && <div>City: {customer.address.city}</div>}
-                            {customer.address.state && <div>State: {customer.address.state}</div>}
+                            {customer.address.street && <div>Street: {customer.address.street.replace(/[#]/g, '')}</div>}
+                            {customer.address.city && <div>City: {customer.address.city.replace(/[#]/g, '')}</div>}
+                            {customer.address.state && <div>State: {customer.address.state.replace(/[#]/g, '')}</div>}
                             {customer.address.pincode && <div>Pincode: {customer.address.pincode}</div>}
                         </div>
                         ) : (

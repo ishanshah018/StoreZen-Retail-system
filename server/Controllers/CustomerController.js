@@ -60,7 +60,19 @@ const exportCustomersPDF = async (req, res) => {
 
         // PDF Header
         doc.fontSize(20).fillColor('#1f2937').text('Customer Data Report', 50, 50);
-        doc.fontSize(12).fillColor('#4b5563').text(`Generated on: ${new Date().toLocaleDateString()}`, 50, 80);
+        
+        // Format date properly
+        const now = new Date();
+        const formattedDate = now.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        });
+        
+        doc.fontSize(12).fillColor('#4b5563').text(`Generated on: ${formattedDate}`, 50, 80);
         doc.fontSize(12).fillColor('#4b5563').text(`Total Customers: ${customers.length}`, 50, 100);
         
         // Add a line separator
@@ -70,45 +82,65 @@ const exportCustomersPDF = async (req, res) => {
 
         // Add each customer data
         customers.forEach((customer, index) => {
-            // Check if we need a new page
-            if (yPosition > 700) {
+            // Calculate space needed for this customer (approximately)
+            // Header (25) + Name (15) + Email (15) + Contact (15) + Address (15) + Promotions (15) + Registration (15) + Separator (20) = ~135 points
+            const spaceNeeded = 135;
+            
+            // Check if we need a new page - ensure enough space for complete customer data
+            if (yPosition + spaceNeeded > 750) {
                 doc.addPage();
                 yPosition = 50;
             }
 
             // Customer header
-            doc.fontSize(14).fillColor('#2563eb').text(`Customer #${index + 1}`, 50, yPosition);
+            doc.fontSize(14).fillColor('#2563eb').text(`Customer ${index + 1}`, 50, yPosition);
             yPosition += 25;
 
-            // Customer details
-            doc.fontSize(11).fillColor('#374151').text(`Name: ${customer.name}`, 70, yPosition);
+            // Customer details - Clean data and remove unwanted characters
+            const cleanName = (customer.name || 'Not provided').replace(/[#]/g, '');
+            const cleanEmail = (customer.email || 'Not provided').replace(/[#]/g, '');
+            const cleanContact = (customer.contactNumber || 'Not provided').replace(/[#]/g, '');
+            
+            doc.fontSize(11).fillColor('#374151').text(`Name: ${cleanName}`, 70, yPosition);
             yPosition += 15;
-            doc.fillColor('#374151').text(`Email: ${customer.email}`, 70, yPosition);
+            doc.fillColor('#374151').text(`Email: ${cleanEmail}`, 70, yPosition);
             yPosition += 15;
-            doc.fillColor('#374151').text(`Contact: ${customer.contactNumber || 'Not provided'}`, 70, yPosition);
+            doc.fillColor('#374151').text(`Contact: ${cleanContact}`, 70, yPosition);
             yPosition += 15;
 
-            // Address details
+            // Address details - Clean and organize properly
             if (customer.address) {
                 const addressParts = [];
-                if (customer.address.street) addressParts.push(customer.address.street);
-                if (customer.address.city) addressParts.push(customer.address.city);
-                if (customer.address.state) addressParts.push(customer.address.state);
-                if (customer.address.pincode) addressParts.push(customer.address.pincode);
+                if (customer.address.street) addressParts.push(customer.address.street.replace(/[#]/g, ''));
+                if (customer.address.city) addressParts.push(customer.address.city.replace(/[#]/g, ''));
+                if (customer.address.state) addressParts.push(customer.address.state.replace(/[#]/g, ''));
+                if (customer.address.pincode) addressParts.push(customer.address.pincode.toString().replace(/[#]/g, ''));
                 
                 const addressText = addressParts.length > 0 ? addressParts.join(', ') : 'Not provided';
                 doc.fillColor('#374151').text(`Address: ${addressText}`, 70, yPosition);
+                yPosition += 15;
+            } else {
+                doc.fillColor('#374151').text(`Address: Not provided`, 70, yPosition);
                 yPosition += 15;
             }
 
             // Preferences
             const promotions = customer.notificationPreferences?.promotions ? 'Enabled' : 'Disabled';
-            doc.fillColor('#374151').text(`Promotions: ${promotions}`, 70, yPosition);
-            yPosition += 25;
+            doc.fillColor('#374151').text(`Promotion Notifications: ${promotions}`, 70, yPosition);
+            yPosition += 15;
+            
+            // Registration date if available
+            if (customer.createdAt) {
+                const regDate = new Date(customer.createdAt).toLocaleDateString('en-US');
+                doc.fillColor('#374151').text(`Registered: ${regDate}`, 70, yPosition);
+                yPosition += 15;
+            }
+            
+            yPosition += 10;
 
             // Add separator line
             doc.moveTo(50, yPosition).lineTo(550, yPosition).stroke();
-            yPosition += 15;
+            yPosition += 20;
         });
 
         // Finalize the PDF

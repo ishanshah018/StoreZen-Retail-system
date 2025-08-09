@@ -361,9 +361,13 @@ def download_stock_pdf(request):
         title = Paragraph("Stock Inventory Report", title_style)
         elements.append(title)
         
-        # Date
+        # Date - Use system local time instead of Django timezone
+        import time
         date_style = ParagraphStyle('DateStyle', parent=styles['Normal'], fontSize=10, alignment=1)
-        date_text = Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", date_style)
+        # Get current local time using system time
+        local_time = time.localtime()
+        formatted_date = time.strftime('%B %d, %Y at %I:%M %p', local_time)
+        date_text = Paragraph(f"Generated on: {formatted_date}", date_style)
         elements.append(date_text)
         elements.append(Spacer(1, 20))
         
@@ -443,7 +447,9 @@ def download_stock_pdf(request):
         print(f"PDF generated successfully, size: {len(pdf_data)} bytes")  # Debug log
         
         response = HttpResponse(pdf_data, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="stock_inventory_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        # Use local time for filename
+        local_time_str = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+        response['Content-Disposition'] = f'attachment; filename="stock_inventory_{local_time_str}.pdf"'
         
         return response
         
