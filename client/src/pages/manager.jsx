@@ -96,6 +96,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     // Modal visibility states
     const [showInventoryOptions, setShowInventoryOptions] = useState(false);
     const [showStockView, setShowStockView] = useState(false);
+    const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'out-of-stock', 'low-stock'
     const [showAddProduct, setShowAddProduct] = useState(false);
     const [showUpdateStock, setShowUpdateStock] = useState(false);
     const [showRemoveProduct, setShowRemoveProduct] = useState(false);
@@ -450,7 +451,9 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);const inventoryFeatures = [
+    }, []);
+
+    const inventoryFeatures = [
     {
     title: "View Product Inventory",
     description: "Complete inventory management with real-time stock levels",
@@ -570,11 +573,12 @@ import CouponManagement from '../components/CouponManagement';    // ===========
         }const data = await response.json();
     // Transform data to show only required fields
     const transformedData = data.map(product => ({
-    id: product.id,
-    name: product.name,
-    category: product.category,
-    price: product.price,
-    stock: product.stock || 0 // Using the actual stock field from Django model
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        stock: product.stock || 0, // Using the actual stock field from Django model
+        in_stock: product.in_stock // Include the in_stock boolean field
     }));
 
     // Clear and populate Trie with new data
@@ -584,7 +588,8 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     });
 
     setStockData(transformedData);
-    setFilteredStockData(transformedData);
+    // Apply current filters to the new data
+    applyFilters(searchQuery, stockFilter, transformedData);
     setUpdateStockData(transformedData);
     // Initialize filtered data for stock update and remove products
     setFilteredUpdateStockData(transformedData);
@@ -1448,43 +1453,74 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     } finally {
     setLoading(false);
     }
-    };// Handle search functionality
+    };
+
+    // Handle stock status filtering
+    const applyStockFilter = (products, filterType) => {
+        if (filterType === 'all') return products;
+        
+        return products.filter(product => {
+            const stock = product.stock || 0;
+            
+            switch (filterType) {
+                case 'in-stock':
+                    // Products with "In Stock" status (stock > 50)
+                    return stock > 50;
+                case 'out-of-stock':
+                    // Products with "Out of Stock" status (stock = 0)
+                    return stock === 0;
+                case 'low-stock':
+                    // Products with "Low Stock" and "Last Few" status (stock <= 50 and stock >= 1)
+                    return stock >= 1 && stock <= 50;
+                default:
+                    return true;
+            }
+        });
+    };
+
+    // Combined search and filter function
+    const applyFilters = (query = searchQuery, filterType = stockFilter, data = stockData) => {
+        let filteredData = data;
+        
+        // First apply search filter if query exists
+        if (query && query.trim()) {
+            try {
+                const searchResults = productTrie.search(query);
+                if (searchResults.length === 0) {
+                    // Fallback to simple string search
+                    filteredData = data.filter(product => 
+                        product.name.toLowerCase().includes(query.toLowerCase()) ||
+                        product.category.toLowerCase().includes(query.toLowerCase())
+                    );
+                } else {
+                    filteredData = searchResults;
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                // Fallback to simple filter
+                filteredData = data.filter(product => 
+                    product.name.toLowerCase().includes(query.toLowerCase()) ||
+                    product.category.toLowerCase().includes(query.toLowerCase())
+                );
+            }
+        }
+        
+        // Then apply stock filter
+        filteredData = applyStockFilter(filteredData, filterType);
+        
+        setFilteredStockData(filteredData);
+    };
+
+    // Handle search functionality
     const handleSearch = (query) => {
-    setSearchQuery(query);
+        setSearchQuery(query);
+        applyFilters(query, stockFilter);
+    };
 
-    if (!query.trim()) {
-    setFilteredStockData(stockData);
-    return;
-    }
-
-    console.log('Searching for:', query);
-    console.log('Stock data available:', stockData.length);
-
-    // Fallback to simple filter if Trie search fails
-    try {
-    const searchResults = productTrie.search(query);
-    console.log('Trie search results:', searchResults.length);
-
-    if (searchResults.length === 0) {
-    // Fallback to simple string search
-    const fallbackResults = stockData.filter(product => 
-    product.name.toLowerCase().includes(query.toLowerCase()) ||
-    product.category.toLowerCase().includes(query.toLowerCase())
-    );
-    console.log('Fallback search results:', fallbackResults.length);
-    setFilteredStockData(fallbackResults);
-    } else {
-    setFilteredStockData(searchResults);
-    }
-    } catch (error) {
-    console.error('Search error:', error);
-    // Fallback to simple filter
-    const fallbackResults = stockData.filter(product => 
-    product.name.toLowerCase().includes(query.toLowerCase()) ||
-    product.category.toLowerCase().includes(query.toLowerCase())
-    );
-    setFilteredStockData(fallbackResults);
-    }
+    // Handle stock filter change
+    const handleStockFilterChange = (filterType) => {
+        setStockFilter(filterType);
+        applyFilters(searchQuery, filterType);
     };
 
     // Search function for stock update modal
@@ -2693,6 +2729,42 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                             </svg>
                             {stockLoading ? 'Refreshing...' : 'Refresh'}
                         </GradientButton>
+                    </div>
+                </div>
+            </div>
+
+            {/* Stock Filter Section */}
+            <div className={`mb-6 p-4 rounded-lg border ${theme.cardBg} ${theme.border}`}>
+                <div className="flex flex-col space-y-3">
+                    <div className={`text-sm font-semibold ${theme.text} flex items-center`}>
+                        <Settings className="h-4 w-4 mr-2 text-purple-600" />
+                        Filter by Stock Status
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {[
+                            { key: 'all', label: 'All Products', icon: Package, color: 'bg-gray-500 hover:bg-gray-600' },
+                            { key: 'in-stock', label: 'In Stock', icon: CheckCircle, color: 'bg-green-500 hover:bg-green-600' },
+                            { key: 'out-of-stock', label: 'Out of Stock', icon: XCircle, color: 'bg-red-500 hover:bg-red-600' },
+                            { key: 'low-stock', label: 'Low Stock', icon: AlertTriangle, color: 'bg-yellow-500 hover:bg-yellow-600' }
+                        ].map((filter) => {
+                            const Icon = filter.icon;
+                            const isActive = stockFilter === filter.key;
+                            return (
+                                <button
+                                    key={filter.key}
+                                    onClick={() => handleStockFilterChange(filter.key)}
+                                    className={`flex items-center px-3 py-2 rounded-lg text-white text-sm font-medium transition-all duration-200 transform hover:scale-105 ${
+                                        isActive 
+                                            ? `${filter.color} ring-2 ring-purple-300 shadow-lg` 
+                                            : `${filter.color} opacity-75 hover:opacity-100`
+                                    }`}
+                                >
+                                    <Icon className="h-4 w-4 mr-2" />
+                                    {filter.label}
+                                    {isActive && <span className="ml-2 text-xs">✓</span>}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
