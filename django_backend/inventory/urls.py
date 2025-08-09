@@ -9,7 +9,8 @@ from .views import (
     check_low_stock_alerts,
     low_stock_alerts_history,
     twilio_account_status,
-    download_stock_pdf
+    download_stock_pdf,
+    restock_product
 )
 
 router = DefaultRouter()
@@ -25,4 +26,5 @@ urlpatterns = [
     path('manager/alerts-history/', low_stock_alerts_history, name='alerts-history'),
     path('manager/twilio-status/', twilio_account_status, name='twilio-status'),
     path('manager/download-stock-pdf/', download_stock_pdf, name='download-stock-pdf'),
+    path('manager/restock-product/', restock_product, name='restock-product'),
 ]

@@ -233,6 +233,54 @@ def check_low_stock_alerts(request):
         return Response({'error': str(e)}, status=500)
 
 
+@api_view(['POST'])
+def restock_product(request):
+    """
+    Restock a specific product - Updates stock quantity for wishlisted items
+    """
+    try:
+        product_id = request.data.get('productId')
+        add_quantity = request.data.get('quantity', 0)
+        
+        if not product_id:
+            return Response({'error': 'Product ID is required'}, status=400)
+        
+        if not add_quantity or add_quantity < 1:
+            return Response({'error': 'Quantity must be greater than 0'}, status=400)
+        
+        # Find the product
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({'error': 'Product not found'}, status=404)
+        
+        # Store original stock for logging
+        original_stock = product.stock
+        
+        # Update stock
+        product.stock += int(add_quantity)
+        product.save()  # This will automatically update in_stock field via model's save method
+        
+        return Response({
+            'success': True,
+            'message': f'Successfully restocked {product.name}',
+            'data': {
+                'productId': product.id,
+                'productName': product.name,
+                'originalStock': original_stock,
+                'addedQuantity': int(add_quantity),
+                'newStock': product.stock,
+                'inStock': product.in_stock,
+                'updatedAt': product.name  # Using name as timestamp placeholder
+            }
+        })
+        
+    except Exception as e:
+        return Response({
+            'error': f'Error restocking product: {str(e)}'
+        }, status=500)
+
+
 @api_view(['GET'])
 def twilio_account_status(request):
     """

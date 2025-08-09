@@ -17,4 +17,10 @@ router.get('/check/:userId/:productId', WishlistController.checkWishlistStatus);
 // DELETE /api/wishlist/clear/:userId - Clear entire wishlist
 router.delete('/clear/:userId', WishlistController.clearWishlist);
 
+// GET /api/wishlist/analytics/manager - Get wishlist analytics for managers
+router.get('/analytics/manager', WishlistController.getWishlistAnalytics);
+
+// DELETE /api/wishlist/product/:productId - Remove product from all wishlists (for restocking)
+router.delete('/product/:productId', WishlistController.removeProductFromAllWishlists);
+
 module.exports = router;
