@@ -1,0 +1,24 @@
+{
+  "name": "storezen",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently -n PYTHON,SERVER,CLIENT -c green,blue,magenta \"cd django_backend && python manage.py runserver\" \"cd server && npm start\" \"cd client && npm start\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ishanshah018/StoreZen-Retail-system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ishanshah018/StoreZen-Retail-system/issues"
+  },
+  "homepage": "https://github.com/ishanshah018/StoreZen-Retail-system#readme",
+  "description": "",
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}
