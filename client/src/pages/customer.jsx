@@ -687,9 +687,36 @@ const validateCouponForCart = async (couponCode, total = cartTotal, items = cart
 
 /** Handle Smart Coins usage */
 const handleSmartCoinsChange = (amount) => {
+    if (!amount || amount <= 0) {
+        setSmartCoinsToUse(0);
+        return;
+    }
+
     const maxUsable = Math.min(smartCoinsBalance, cartTotal - couponDiscount);
-    const coinsToUse = Math.min(Math.max(0, amount), maxUsable);
-    setSmartCoinsToUse(coinsToUse);
+    
+    if (amount > smartCoinsBalance) {
+        // User entered more than available balance
+        setBillingError(`You only have ${smartCoinsBalance} Smart Coins available`);
+        setSmartCoinsToUse(smartCoinsBalance);
+        
+        // Clear error after 3 seconds
+        setTimeout(() => setBillingError(''), 3000);
+        return;
+    }
+    
+    if (amount > maxUsable) {
+        // User entered more than what can be used for this purchase
+        setBillingError(`Maximum ${maxUsable} coins can be used for this purchase`);
+        setSmartCoinsToUse(maxUsable);
+        
+        // Clear error after 3 seconds
+        setTimeout(() => setBillingError(''), 3000);
+        return;
+    }
+    
+    // Clear any previous errors
+    setBillingError('');
+    setSmartCoinsToUse(amount);
 };
 
 /** Calculate final amount */
@@ -1321,6 +1348,22 @@ return (
                 {customerName}
                 </p>
             </div>
+
+            {/* Quick Smart Billing Access */}
+            <button
+                onClick={() => setShowSmartBillingModal(true)}
+                className="group relative flex items-center space-x-2 transition-all duration-300 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-2 border-violet-300 hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/25 transform hover:scale-105 px-4 py-2 rounded-lg"
+                title="Smart Billing - Quick Access"
+            >
+                <Receipt className="h-5 w-5 transition-transform duration-300 group-hover:rotate-12" />
+                <span className="font-medium hidden lg:block">Smart Billing</span>
+                <span className="font-medium lg:hidden">Bill</span>
+                
+                {/* Quick access indicator */}
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full border-2 border-white animate-pulse">
+                    <div className="w-full h-full bg-yellow-400 rounded-full animate-ping"></div>
+                </div>
+            </button>
 
             {/* Logout Button */}
             <button
@@ -2906,7 +2949,7 @@ return (
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 billing-modal-content relative">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 billing-modal-content relative">
 
             {/* Step 1: Product Search */}
             {billingStep === 'search' && (
@@ -2932,7 +2975,7 @@ return (
 
                 {/* Cart Summary (if not empty) */}
                 {cart.length > 0 && (
-                    <div className={`${themeStyles.cardBg} rounded-lg p-4 border ${themeStyles.border} cart-summary-section transition-all duration-300`}>
+                    <div className={`${themeStyles.cardBg} rounded-lg p-4 border ${themeStyles.border} cart-summary-section transition-all duration-300 overflow-hidden`}>
                     <div className="flex items-center justify-between mb-2">
                         <h4 className={`font-semibold ${themeStyles.text} flex items-center`}>
                         <ShoppingCart className="h-5 w-5 mr-2" />
@@ -2940,14 +2983,14 @@ return (
                         </h4>
                         <span className={`font-bold ${themeStyles.accent}`}>₹{cartTotal.toFixed(2)}</span>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {cart.slice(0, 3).map((item, index) => (
-                        <div key={item.id} className="px-2 py-1 rounded text-xs bg-violet-100 dark:bg-violet-900/50 text-violet-800 dark:text-violet-200 border border-violet-200 dark:border-violet-700">
+                        <div key={item.id} className="px-2 py-1 rounded text-xs bg-violet-100 dark:bg-violet-900/50 text-violet-800 dark:text-violet-200 border border-violet-200 dark:border-violet-700 flex-shrink-0">
                             {item.name} x{item.quantity}
                         </div>
                         ))}
                         {cart.length > 3 && (
-                        <span className={`text-xs ${themeStyles.textSecondary}`}>+{cart.length - 3} more</span>
+                        <span className={`text-xs ${themeStyles.textSecondary} flex-shrink-0`}>+{cart.length - 3} more</span>
                         )}
                         <button
                         onClick={() => {
@@ -2967,7 +3010,7 @@ return (
                 )}
 
                 {/* Products Grid */}
-                <div className="products-grid-container">
+                <div className="products-grid-container overflow-hidden">
                 {billingLoading ? (
                     <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -3176,7 +3219,7 @@ return (
                             disabled={billingLoading}
                             className="w-full py-2 px-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {billingLoading ? 'Finding...' : 'Auto-Apply Best Coupon'}
+                            {billingLoading ? 'Finding...' : 'Smartly-Apply Best Coupon'}
                         </button>
                         
                         {/* Manual Coupon Code Entry */}
@@ -3300,18 +3343,6 @@ return (
                     </button>
                 </div>
 
-                {/* Scroll Indicator for Payment */}
-                <div className="text-center mb-4">
-                    <p className="text-sm text-violet-600 dark:text-violet-400 flex items-center justify-center space-x-2">
-                        <span>Scroll for more payment options</span>
-                        <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce"></div>
-                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                        </div>
-                    </p>
-                </div>
-
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     
                     {/* Left: Payment Methods */}
@@ -3327,9 +3358,10 @@ return (
                         { id: 'Card', label: 'Credit/Debit Card', icon: CreditCard, color: 'from-blue-500 to-indigo-500' },
                         { id: 'UPI', label: 'UPI Payment', icon: Smartphone, color: 'from-purple-500 to-pink-500' }
                         ].map((method, index) => (
-                        <label key={method.id} className="block cursor-pointer">
-                            <div 
-                            className={`p-4 border-2 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
+                        <div 
+                            key={method.id} 
+                            onClick={() => setSelectedPaymentMethod(method.id)}
+                            className={`p-4 border-2 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg cursor-pointer ${
                             selectedPaymentMethod === method.id
                                 ? `border-blue-500 ${themeStyles.cardBg} shadow-lg ring-2 ring-blue-200 dark:ring-blue-800`
                                 : `${themeStyles.border} ${themeStyles.cardBg} hover:${themeStyles.hoverBg} hover:border-blue-300 dark:hover:border-blue-600`
@@ -3338,25 +3370,16 @@ return (
                                 animationDelay: `${index * 0.1}s`,
                                 animation: 'fadeInUp 0.5s ease-out forwards'
                             }}
-                            >
+                        >
                             <div className="flex items-center space-x-3">
                                 <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${method.color} flex items-center justify-center text-white`}>
                                 <method.icon className="h-5 w-5" />
                                 </div>
                                 <div className="flex-1">
                                 <span className={`font-medium ${themeStyles.text}`}>{method.label}</span>
-                                <input
-                                    type="radio"
-                                    name="paymentMethod"
-                                    value={method.id}
-                                    checked={selectedPaymentMethod === method.id}
-                                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                                    className="ml-auto"
-                                />
                                 </div>
                             </div>
-                            </div>
-                        </label>
+                        </div>
                         ))}
                     </div>
                     </div>
@@ -3374,29 +3397,44 @@ return (
                         <div className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-lg p-4`}>
                         <div className="flex items-center justify-between mb-3">
                             <span className={`${themeStyles.text}`}>Available Balance</span>
-                            <span className={`font-bold ${themeStyles.accent}`}>{smartCoinsBalance} coins</span>
+                            <span className={`font-bold ${themeStyles.accent}`}>
+                                {smartCoinsBalance > 0 ? `${smartCoinsBalance} coins` : 'No coins available'}
+                            </span>
                         </div>
                         
-                        <div className="mb-3">
-                            <label className={`block text-sm font-medium ${themeStyles.text} mb-1`}>
-                            Use coins (1 coin = ₹1)
-                            </label>
-                            <input
-                            type="number"
-                            min="0"
-                            max={Math.min(smartCoinsBalance, cartTotal - couponDiscount)}
-                            value={smartCoinsToUse}
-                            onChange={(e) => handleSmartCoinsChange(parseInt(e.target.value) || 0)}
-                            className={`w-full p-2 border rounded-lg ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text}`}
-                            placeholder="Enter coins to use"
-                            />
-                        </div>
-                        
-                        {smartCoinsToUse > 0 && (
-                            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded">
-                            <p className="text-blue-700 dark:text-blue-300 text-sm">
-                                Using {smartCoinsToUse} coins = ₹{smartCoinsToUse} discount
-                            </p>
+                        {smartCoinsBalance > 0 ? (
+                            <>
+                            <div className="mb-3">
+                                <label className={`block text-sm font-medium ${themeStyles.text} mb-1`}>
+                                Use coins (1 coin = ₹1)
+                                </label>
+                                <input
+                                type="number"
+                                min="0"
+                                max={Math.min(smartCoinsBalance, cartTotal - couponDiscount)}
+                                value={smartCoinsToUse || ''}
+                                onChange={(e) => handleSmartCoinsChange(parseInt(e.target.value) || 0)}
+                                className={`w-full p-2 border rounded-lg ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text}`}
+                                placeholder="Enter coins to use"
+                                />
+                                <p className={`text-xs ${themeStyles.textSecondary} mt-1`}>
+                                    Maximum usable: {Math.min(smartCoinsBalance, cartTotal - couponDiscount)} coins
+                                </p>
+                            </div>
+                            
+                            {smartCoinsToUse > 0 && (
+                                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded">
+                                <p className="text-blue-700 dark:text-blue-300 text-sm">
+                                    Using {smartCoinsToUse} coins = ₹{smartCoinsToUse} discount
+                                </p>
+                                </div>
+                            )}
+                            </>
+                        ) : (
+                            <div className="p-3 bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700 rounded text-center">
+                                <p className={`text-sm ${themeStyles.textSecondary}`}>
+                                    You don't have any Smart Coins available
+                                </p>
                             </div>
                         )}
                         </div>
@@ -3687,6 +3725,34 @@ return (
             </div>
         </div>
         </div>
+
+        {/* Floating Smart Billing Button - Always Accessible */}
+        <div className="fixed bottom-6 right-6 z-50">
+            <button
+                onClick={() => setShowSmartBillingModal(true)}
+                className="group relative bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-700 hover:to-purple-800 text-white p-4 rounded-full shadow-2xl hover:shadow-violet-500/25 transform hover:scale-110 transition-all duration-300 border-2 border-white/20"
+                title="Quick Smart Billing Access"
+            >
+                <Receipt className="h-6 w-6 transition-transform duration-300 group-hover:rotate-12" />
+                
+                {/* Pulse Ring Animation */}
+                <div className="absolute inset-0 rounded-full bg-violet-400 animate-ping opacity-20"></div>
+                
+                {/* Quick Access Indicator */}
+                <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 text-xs font-bold px-2 py-1 rounded-full border-2 border-white animate-bounce">
+                    ⚡
+                </div>
+                
+                {/* Tooltip on Hover */}
+                <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block">
+                    <div className="bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg whitespace-nowrap">
+                        Smart Billing - Instant Access
+                        <div className="absolute top-full right-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                    </div>
+                </div>
+            </button>
+        </div>
+
         </>
     )}
     
