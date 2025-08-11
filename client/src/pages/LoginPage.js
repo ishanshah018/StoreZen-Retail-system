@@ -147,16 +147,23 @@ function Login() {
                 // Show success animation and confetti
                 setLoginSuccess(true);
                 setShowConfetti(true);
-                
+
                 // Store user data
                 localStorage.setItem('token', jwtToken);
                 localStorage.setItem('loggedInUser', name);
                 localStorage.setItem('customerName', name);
                 localStorage.setItem('userId', userId);
-                
+
+                // Increment customer request counter (only on real login)
+                const currentClicks = localStorage.getItem('customerDashboardClicks') || '0';
+                const newClickCount = parseInt(currentClicks) + 1;
+                localStorage.setItem('customerDashboardClicks', newClickCount.toString());
+                // Optionally, clear session flag if used elsewhere
+                sessionStorage.removeItem('dashboardCountedThisSession');
+
                 // Show success message
                 handleSuccess(message);
-                
+
                 // Wait for success animation to complete, then redirect
                 setTimeout(() => {
                     navigate('/customer')
