@@ -168,6 +168,21 @@ const [feedbackRating, setFeedbackRating] = useState(0); // Selected star rating
 const [feedbackCategories, setFeedbackCategories] = useState([]); // Selected feedback categories
 const [feedbackText, setFeedbackText] = useState(''); // Optional feedback text
 const [feedbackLoading, setFeedbackLoading] = useState(false); // Feedback submission loading
+
+// Past Bills modal states
+const [showPastBillsModal, setShowPastBillsModal] = useState(false); // Past Bills modal toggle
+const [pastBills, setPastBills] = useState([]); // User's past bills
+const [pastBillsLoading, setPastBillsLoading] = useState(false); // Past bills loading state
+const [pastBillsError, setPastBillsError] = useState(''); // Past bills error message
+const [billFilter, setBillFilter] = useState({
+    filterType: 'all',
+    dateFrom: '',
+    dateTo: '',
+    month: '',
+    year: ''
+}); // Bill filtering options
+const [currentPage, setCurrentPage] = useState(1); // Pagination
+const [expandedBill, setExpandedBill] = useState(null); // Currently expanded bill for details
 const [feedbackError, setFeedbackError] = useState(''); // Feedback error message
 const [feedbackSuccess, setFeedbackSuccess] = useState(false); // Feedback success state
 
@@ -362,6 +377,132 @@ const fetchSmartCoins = async () => {
 const showSmartCoinsView = () => {
     setShowSmartCoinsModal(true);
     fetchSmartCoins();
+};
+
+// =============================================================================
+// PAST BILLS FUNCTIONS - Professional Implementation with Filtering
+// =============================================================================
+
+/**
+ * Fetch customer's past bills with advanced filtering
+ * Supports various filter types including date ranges, months, years
+ */
+const fetchPastBills = async (resetPage = false) => {
+    try {
+        setPastBillsLoading(true);
+        setPastBillsError('');
+
+        // Get current user ID from localStorage (assuming it's stored there during login)
+        const userId = localStorage.getItem('userId') || localStorage.getItem('customerId');
+        
+        if (!userId) {
+            setPastBillsError('User not authenticated. Please login again.');
+            return;
+        }
+
+        // Build query parameters
+        const queryParams = new URLSearchParams({
+            page: resetPage ? 1 : currentPage,
+            limit: 10,
+            filterType: billFilter.filterType,
+            ...(billFilter.dateFrom && { dateFrom: billFilter.dateFrom }),
+            ...(billFilter.dateTo && { dateTo: billFilter.dateTo }),
+            ...(billFilter.month && { month: billFilter.month }),
+            ...(billFilter.year && { year: billFilter.year })
+        });
+
+        // Make API call to fetch bills
+        const response = await fetch(
+            buildApiUrl('node', `${API_CONFIG.endpoints.node.billing.billHistory}/${userId}?${queryParams}`)
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            // If resetting page, replace bills; otherwise append for pagination
+            if (resetPage || currentPage === 1) {
+                setPastBills(result.bills);
+                setCurrentPage(1);
+            } else {
+                setPastBills(prev => [...prev, ...result.bills]);
+            }
+            
+        } else {
+            setPastBillsError(result.message || 'Failed to fetch past bills');
+        }
+
+    } catch (error) {
+        console.error('Error fetching past bills:', error);
+        setPastBillsError('Failed to load your past bills. Please check your connection and try again.');
+    } finally {
+        setPastBillsLoading(false);
+    }
+};
+
+/**
+ * Apply filter to past bills and refresh data
+ */
+const applyBillFilter = (newFilter) => {
+    setBillFilter(newFilter);
+    setCurrentPage(1);
+    fetchPastBills(true); // Reset page when applying new filter
+};
+
+/**
+ * Load more bills for pagination - currently not implemented in UI
+ * Can be used for infinite scroll or load more button functionality
+ */
+// const loadMoreBills = () => {
+//     setCurrentPage(prev => prev + 1);
+//     fetchPastBills(false);
+// };
+
+/**
+ * Show Past Bills modal and fetch initial data
+ */
+const showPastBillsView = () => {
+    setShowPastBillsModal(true);
+    setExpandedBill(null);
+    setBillFilter({ filterType: 'all', dateFrom: '', dateTo: '', month: '', year: '' });
+    setCurrentPage(1);
+    fetchPastBills(true);
+};
+
+/**
+ * Toggle bill expansion to show/hide detailed view
+ */
+/**
+ * Format date for display
+ */
+const formatBillDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+/**
+ * Get filter display text
+ */
+const getFilterDisplayText = () => {
+    switch (billFilter.filterType) {
+        case 'lastMonth': return 'Last Month';
+        case 'lastYear': return 'Last Year';
+        case 'thisMonth': return 'This Month';
+        case 'thisYear': return 'This Year';
+        case 'custom': return 'Custom Date Range';
+        case 'specificMonth': return `${billFilter.month}/${billFilter.year}`;
+        case 'specificYear': return billFilter.year;
+        default: return 'All Time';
+    }
 };
 
 // =============================================================================
@@ -1796,6 +1937,8 @@ return (
                 fetchCoupons();
                 } else if (feature.title === "View Smart Coins") {
                 showSmartCoinsView();
+                } else if (feature.title === "View Past Bills") {
+                showPastBillsView();
                 } else if (feature.title === "Submit Feedback for Store") {
                 showFeedbackView();
                 } else if (feature.title === "See Your Wishlisted Items") {
@@ -2748,6 +2891,351 @@ return (
             </button>
             </div>
         </div>
+        </div>
+    )}
+
+    {/* =============================================================================
+        PAST BILLS MODAL - Professional Bill History with Advanced Filtering
+        ============================================================================= */}
+    {showPastBillsModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`w-full max-w-6xl max-h-[95vh] overflow-hidden rounded-2xl shadow-2xl transition-all duration-300 ${themeStyles.cardBg} border ${themeStyles.border}`}>
+                
+                {/* Modal Header with Filters */}
+                <div className={`sticky top-0 z-10 p-6 border-b backdrop-blur-md ${themeStyles.headerBg} ${themeStyles.border}`}>
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center space-x-3">
+                            <div className="p-2 rounded-full bg-gradient-to-r from-violet-500 to-purple-600 shadow-lg">
+                                <Receipt className="h-6 w-6 text-white" />
+                            </div>
+                            <div>
+                                <h2 className={`text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent`}>
+                                    Your Past Bills
+                                </h2>
+                                <p className={`text-sm ${themeStyles.textSecondary}`}>
+                                    View and manage your purchase history
+                                </p>
+                            </div>
+                        </div>
+                        
+                        {/* Filter Controls */}
+                        <div className="flex items-center space-x-3">
+                            <select
+                                value={billFilter.filterType}
+                                onChange={(e) => {
+                                    const newFilter = { ...billFilter, filterType: e.target.value };
+                                    applyBillFilter(newFilter);
+                                }}
+                                className={`px-3 py-2 rounded-lg border ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text} text-sm focus:outline-none focus:ring-2 focus:ring-violet-500`}
+                            >
+                                <option value="all">All Time</option>
+                                <option value="thisMonth">This Month</option>
+                                <option value="lastMonth">Last Month</option>
+                                <option value="thisYear">This Year</option>
+                                <option value="lastYear">Last Year</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                            
+                            <button
+                                onClick={() => setShowPastBillsModal(false)}
+                                className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${themeStyles.textSecondary}`}
+                            >
+                                <X className="h-6 w-6" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Custom Date Range Inputs */}
+                    {billFilter.filterType === 'custom' && (
+                        <div className={`flex items-center space-x-4 mt-4 pt-4 border-t ${themeStyles.border}`}>
+                            <div>
+                                <label className={`block text-xs font-medium ${themeStyles.textSecondary} mb-1`}>From Date</label>
+                                <input
+                                    type="date"
+                                    value={billFilter.dateFrom}
+                                    onChange={(e) => {
+                                        const newFilter = { ...billFilter, dateFrom: e.target.value };
+                                        setBillFilter(newFilter);
+                                    }}
+                                    className={`px-3 py-2 rounded-lg border ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text} text-sm`}
+                                />
+                            </div>
+                            <div>
+                                <label className={`block text-xs font-medium ${themeStyles.textSecondary} mb-1`}>To Date</label>
+                                <input
+                                    type="date"
+                                    value={billFilter.dateTo}
+                                    onChange={(e) => {
+                                        const newFilter = { ...billFilter, dateTo: e.target.value };
+                                        setBillFilter(newFilter);
+                                    }}
+                                    className={`px-3 py-2 rounded-lg border ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text} text-sm`}
+                                />
+                            </div>
+                            <button
+                                onClick={() => applyBillFilter(billFilter)}
+                                className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors text-sm mt-5"
+                            >
+                                Apply Filter
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Active Filter Display */}
+                    <div className={`flex items-center justify-between mt-4 pt-4 border-t ${themeStyles.border}`}>
+                        <div className="flex items-center space-x-2">
+                            <span className={`text-sm ${themeStyles.textSecondary}`}>Showing:</span>
+                            <span className={`px-2 py-1 rounded-full text-xs bg-violet-100 dark:bg-violet-900/50 text-violet-800 dark:text-violet-200`}>
+                                {getFilterDisplayText()}
+                            </span>
+                            <span className={`text-sm ${themeStyles.textSecondary}`}>({pastBills.length} bills)</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bills List */}
+                <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 p-6 max-h-[60vh]">
+                    {pastBillsLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                            <span className={`ml-3 ${themeStyles.textSecondary}`}>Loading your bills...</span>
+                        </div>
+                    ) : pastBillsError ? (
+                        <div className="text-center py-12">
+                            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                            <p className="text-red-600 dark:text-red-400 mb-4">{pastBillsError}</p>
+                            <button
+                                onClick={() => fetchPastBills(true)}
+                                className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors"
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    ) : pastBills.length === 0 ? (
+                        <div className="text-center py-12">
+                            <Receipt className={`h-16 w-16 ${themeStyles.textSecondary} mx-auto mb-4`} />
+                            <p className={`text-lg ${themeStyles.textSecondary} mb-2`}>No bills found</p>
+                            <p className={`text-sm ${themeStyles.textSecondary}`}>
+                                {billFilter.filterType === 'all' 
+                                    ? 'You haven\'t made any purchases yet'
+                                    : `No bills found for the selected period: ${getFilterDisplayText()}`
+                                }
+                            </p>
+                        </div>
+                    ) : expandedBill ? (
+                        // Show single expanded bill in full view
+                        <div className="space-y-6">
+                            {(() => {
+                                const bill = pastBills.find(b => b._id === expandedBill);
+                                if (!bill) return null;
+                                
+                                return (
+                                    <div className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.border} p-6`}>
+                                        {/* Back Button */}
+                                        <div className="flex items-center justify-between mb-6 pb-4 border-b ${themeStyles.border}">
+                                            <button
+                                                onClick={() => setExpandedBill(null)}
+                                                className={`flex items-center space-x-2 px-4 py-2 ${themeStyles.cardBg} border ${themeStyles.border} rounded-lg hover:${themeStyles.hoverBg} transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+                                            >
+                                                <ArrowLeft className="h-4 w-4" />
+                                                <span>Back to Bills List</span>
+                                            </button>
+                                            <div className="text-right">
+                                                <p className={`text-sm ${themeStyles.textSecondary}`}>Bill Details</p>
+                                                <p className={`font-semibold ${themeStyles.text}`}>#{bill.billId}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Store Info */}
+                                        <div className={`text-center mb-6 pb-4 border-b ${themeStyles.border}`}>
+                                            <h3 className={`text-2xl font-bold ${themeStyles.accent}`}>{bill.storeName}</h3>
+                                            <p className={`text-sm ${themeStyles.textSecondary}`}>Smart Shopping Experience</p>
+                                            <p className={`text-sm ${themeStyles.textSecondary} mt-2`}>
+                                                Date: {formatBillDate(bill.billDate)}
+                                            </p>
+                                        </div>
+
+                                        {/* Bill Summary Card */}
+                                        <div className={`p-4 rounded-lg ${themeStyles.headerBg} border ${themeStyles.border} mb-6`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className={`text-lg font-semibold ${themeStyles.text}`}>Bill Summary</h4>
+                                                    <p className={`text-sm ${themeStyles.textSecondary}`}>{bill.items.length} items purchased</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className={`text-2xl font-bold ${themeStyles.accent}`}>₹{bill.billing.finalAmount}</p>
+                                                    <div className={`px-3 py-1 rounded-full text-sm ${
+                                                        bill.paymentMethod === 'Cash' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200' :
+                                                        bill.paymentMethod === 'Card' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200' :
+                                                        'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200'
+                                                    }`}>
+                                                        Paid via {bill.paymentMethod}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Customer Information */}
+                                        <div className="mb-6">
+                                            <h4 className={`text-lg font-semibold ${themeStyles.text} mb-3`}>Customer Information</h4>
+                                            <div className={`p-4 rounded-lg ${themeStyles.cardBg} border ${themeStyles.border}`}>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className={`text-sm ${themeStyles.textSecondary}`}>Name</p>
+                                                        <p className={`font-medium ${themeStyles.text}`}>{bill.customerName}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className={`text-sm ${themeStyles.textSecondary}`}>Email</p>
+                                                        <p className={`font-medium ${themeStyles.text}`}>{bill.customerEmail}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Items Purchased */}
+                                        <div className="mb-6">
+                                            <h4 className={`text-lg font-semibold ${themeStyles.text} mb-3`}>Items Purchased</h4>
+                                            <div className="space-y-3">
+                                                {bill.items.map((item, idx) => (
+                                                    <div key={idx} className={`flex justify-between items-center p-4 rounded-lg ${themeStyles.cardBg} border ${themeStyles.border} hover:shadow-md transition-shadow`}>
+                                                        <div className="flex-1">
+                                                            <h5 className={`font-semibold ${themeStyles.text}`}>{item.productName}</h5>
+                                                            <p className={`text-sm ${themeStyles.textSecondary}`}>{item.category}</p>
+                                                            <p className={`text-sm ${themeStyles.textSecondary}`}>₹{item.price} each</p>
+                                                        </div>
+                                                        <div className="text-center mx-4">
+                                                            <p className={`text-sm ${themeStyles.textSecondary}`}>Quantity</p>
+                                                            <p className={`text-lg font-bold ${themeStyles.text}`}>{item.quantity}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className={`text-sm ${themeStyles.textSecondary}`}>Total</p>
+                                                            <p className={`text-xl font-bold ${themeStyles.accent}`}>₹{item.itemTotal}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Billing Breakdown */}
+                                        <div className={`p-6 rounded-lg ${themeStyles.headerBg} border ${themeStyles.border}`}>
+                                            <h4 className={`text-lg font-semibold ${themeStyles.text} mb-4`}>Billing Breakdown</h4>
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <span className={`${themeStyles.textSecondary}`}>Subtotal</span>
+                                                    <span className={`font-semibold ${themeStyles.text}`}>₹{bill.billing.subtotal}</span>
+                                                </div>
+                                                
+                                                {bill.billing.couponDiscount > 0 && (
+                                                    <div className="flex justify-between items-center text-green-600">
+                                                        <span>Coupon Discount ({bill.billing.couponCode})</span>
+                                                        <span className="font-semibold">-₹{bill.billing.couponDiscount}</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {bill.billing.smartCoinsUsed > 0 && (
+                                                    <div className="flex justify-between items-center text-yellow-600">
+                                                        <span>Smart Coins Used ({bill.billing.smartCoinsUsed} coins)</span>
+                                                        <span className="font-semibold">-₹{bill.billing.smartCoinsDiscount}</span>
+                                                    </div>
+                                                )}
+                                                
+                                                {(bill.billing.couponDiscount > 0 || bill.billing.smartCoinsUsed > 0) && (
+                                                    <>
+                                                        <div className={`border-t ${themeStyles.border} pt-2`}></div>
+                                                        <div className="flex justify-between items-center text-green-600">
+                                                            <span className="font-medium">Total Savings</span>
+                                                            <span className="font-bold">₹{bill.billing.totalDiscount}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                
+                                                <div className={`border-t ${themeStyles.border} pt-3`}></div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className={`text-lg font-bold ${themeStyles.text}`}>Final Amount</span>
+                                                    <span className={`text-2xl font-bold ${themeStyles.accent}`}>₹{bill.billing.finalAmount}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Payment & Smart Coins Info */}
+                                            {bill.billing.smartCoinsEarned > 0 && (
+                                                <div className={`mt-4 pt-4 border-t ${themeStyles.border}`}>
+                                                    <div className="flex items-center justify-center">
+                                                        <div className="text-center">
+                                                            <p className={`text-sm ${themeStyles.textSecondary}`}>Smart Coins Earned</p>
+                                                            <p className="text-2xl font-bold text-yellow-600">+{bill.billing.smartCoinsEarned} coins</p>
+                                                            <p className={`text-xs ${themeStyles.textSecondary}`}>Added to your wallet</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    ) : (
+                        // Show bills list
+                        <div className="space-y-4">
+                            {pastBills.map((bill, index) => (
+                                <div key={bill._id} className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.border} overflow-hidden transition-all duration-300 hover:shadow-lg`}>
+                                    {/* Bill Summary */}
+                                    <div className="p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center space-x-4">
+                                                <div className="flex items-center space-x-2">
+                                                    <Receipt className="h-5 w-5 text-violet-500" />
+                                                    <div>
+                                                        <p className={`font-semibold ${themeStyles.text}`}>#{bill.billId}</p>
+                                                        <p className={`text-sm ${themeStyles.textSecondary}`}>
+                                                            {formatBillDate(bill.billDate)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded-full text-xs ${
+                                                    bill.paymentMethod === 'Cash' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200' :
+                                                    bill.paymentMethod === 'Card' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200' :
+                                                    'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200'
+                                                }`}>
+                                                    {bill.paymentMethod}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex items-center space-x-4">
+                                                <div className="text-right">
+                                                    <p className={`font-bold text-lg ${themeStyles.accent}`}>₹{bill.billing.finalAmount}</p>
+                                                    {bill.billing.totalDiscount > 0 && (
+                                                        <p className="text-sm text-green-600">Saved ₹{bill.billing.totalDiscount}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Quick Summary with View Details Button */}
+                                        <div className={`flex items-center justify-between mt-3 pt-3 border-t ${themeStyles.border}`}>
+                                            <div className="flex items-center space-x-4">
+                                                <span className={`text-sm ${themeStyles.textSecondary}`}>
+                                                    {bill.items.length} item{bill.items.length > 1 ? 's' : ''}
+                                                </span>
+                                                {bill.billing.smartCoinsEarned > 0 && (
+                                                    <span className="text-sm text-yellow-600">
+                                                        +{bill.billing.smartCoinsEarned} coins earned
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <button
+                                                onClick={() => setExpandedBill(bill._id)}
+                                                className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors text-sm font-medium"
+                                            >
+                                                View Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     )}
     

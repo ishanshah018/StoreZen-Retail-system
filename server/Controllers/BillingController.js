@@ -290,28 +290,164 @@ const createBill = async (req, res) => {
 /**
  * Get customer's bill history
  */
+/**
+ * Get customer's bill history with advanced filtering
+ * Supports date range, month, year, and pagination filters
+ */
 const getBillHistory = async (req, res) => {
     try {
         const { customerId } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+        const { 
+            page = 1, 
+            limit = 10,
+            dateFrom,
+            dateTo,
+            month,
+            year,
+            filterType = 'all' // 'all', 'lastMonth', 'lastYear', 'custom'
+        } = req.query;
 
-        const bills = await Bill.find({ customerId })
+        // Build date filter based on filterType
+        let dateFilter = {};
+        const now = new Date();
+
+        switch (filterType) {
+            case 'lastMonth':
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+                dateFilter = {
+                    billDate: {
+                        $gte: lastMonth,
+                        $lte: lastMonthEnd
+                    }
+                };
+                break;
+
+            case 'lastYear':
+                const lastYear = new Date(now.getFullYear() - 1, 0, 1);
+                const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31);
+                dateFilter = {
+                    billDate: {
+                        $gte: lastYear,
+                        $lte: lastYearEnd
+                    }
+                };
+                break;
+
+            case 'thisMonth':
+                const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                dateFilter = {
+                    billDate: {
+                        $gte: thisMonthStart,
+                        $lte: thisMonthEnd
+                    }
+                };
+                break;
+
+            case 'thisYear':
+                const thisYearStart = new Date(now.getFullYear(), 0, 1);
+                const thisYearEnd = new Date(now.getFullYear(), 11, 31);
+                dateFilter = {
+                    billDate: {
+                        $gte: thisYearStart,
+                        $lte: thisYearEnd
+                    }
+                };
+                break;
+
+            case 'custom':
+                if (dateFrom || dateTo) {
+                    dateFilter.billDate = {};
+                    if (dateFrom) dateFilter.billDate.$gte = new Date(dateFrom);
+                    if (dateTo) dateFilter.billDate.$lte = new Date(dateTo);
+                }
+                break;
+
+            case 'specificMonth':
+                if (month && year) {
+                    const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+                    const monthEnd = new Date(parseInt(year), parseInt(month), 0);
+                    dateFilter = {
+                        billDate: {
+                            $gte: monthStart,
+                            $lte: monthEnd
+                        }
+                    };
+                }
+                break;
+
+            case 'specificYear':
+                if (year) {
+                    const yearStart = new Date(parseInt(year), 0, 1);
+                    const yearEnd = new Date(parseInt(year), 11, 31);
+                    dateFilter = {
+                        billDate: {
+                            $gte: yearStart,
+                            $lte: yearEnd
+                        }
+                    };
+                }
+                break;
+        }
+
+        // Combine customer filter with date filter
+        const query = { customerId, ...dateFilter };
+
+        // Fetch bills with pagination
+        const bills = await Bill.find(query)
             .sort({ billDate: -1 })
-            .limit(limit * 1)
-            .skip((page - 1) * limit);
+            .limit(parseInt(limit))
+            .skip((parseInt(page) - 1) * parseInt(limit));
 
-        const totalBills = await Bill.countDocuments({ customerId });
-        const totalPages = Math.ceil(totalBills / limit);
+        // Get total count for pagination
+        const totalBills = await Bill.countDocuments(query);
+        const totalPages = Math.ceil(totalBills / parseInt(limit));
+
+        // Calculate summary statistics
+        const billStats = await Bill.aggregate([
+            { $match: query },
+            {
+                $group: {
+                    _id: null,
+                    totalAmount: { $sum: '$billing.finalAmount' },
+                    totalSavings: { $sum: '$billing.totalDiscount' },
+                    totalSmartCoins: { $sum: '$billing.smartCoinsEarned' },
+                    averageBill: { $avg: '$billing.finalAmount' }
+                }
+            }
+        ]);
+
+        const stats = billStats[0] || {
+            totalAmount: 0,
+            totalSavings: 0,
+            totalSmartCoins: 0,
+            averageBill: 0
+        };
 
         res.status(200).json({
             success: true,
             message: 'Bill history fetched successfully',
             bills,
             pagination: {
-                currentPage: page,
+                currentPage: parseInt(page),
                 totalPages,
                 totalBills,
-                hasMore: page < totalPages
+                hasMore: parseInt(page) < totalPages,
+                limit: parseInt(limit)
+            },
+            statistics: {
+                totalAmount: stats.totalAmount,
+                totalSavings: stats.totalSavings,
+                totalSmartCoins: stats.totalSmartCoins,
+                averageBill: Math.round(stats.averageBill * 100) / 100
+            },
+            filter: {
+                filterType,
+                dateFrom,
+                dateTo,
+                month,
+                year
             }
         });
 
