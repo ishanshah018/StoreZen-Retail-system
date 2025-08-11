@@ -29,7 +29,7 @@ function App() {
       <Router>
         <Routes>
           {/* =============================================================================
-               PUBLIC ROUTES - No authentication required
+                PUBLIC ROUTES - No authentication required
                ============================================================================= */}
           
           <Route path="/" element={<Main />} />           {/* Landing page */}

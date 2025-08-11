@@ -9,8 +9,8 @@ import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji } from "../com
 
 // Icons
 import { 
-  ShoppingBag, Settings, Sun, Moon, Store, User, MessageCircle, Star, Receipt, 
-  FileText, BarChart, Package, Users, TrendingUp, Shield, Zap, Bot
+ShoppingBag, Settings, Sun, Moon, Store, User, MessageCircle, Star, Receipt, 
+FileText, BarChart, Package, Users, TrendingUp, Shield, Zap, Bot
 } from "lucide-react";
 
 // =============================================================================
@@ -18,102 +18,102 @@ import {
 // =============================================================================
 
 const Main = () => {
-  // Theme management
-  const { currentTheme, setCurrentTheme } = useTheme();
+// Theme management
+const { currentTheme, setCurrentTheme } = useTheme();
 
-  // =============================================================================
-  // STATE MANAGEMENT
-  // =============================================================================
+// =============================================================================
+// STATE MANAGEMENT
+// =============================================================================
 
-  // Store configuration
-  const [storeName, setStoreName] = useState(() => {
+// Store configuration
+const [storeName, setStoreName] = useState(() => {
     const saved = localStorage.getItem('storeName');
     return saved || "StoreZen";
-  });
+});
 
-  // =============================================================================
-  // LIFECYCLE EFFECTS
-  // =============================================================================
+// =============================================================================
+// LIFECYCLE EFFECTS
+// =============================================================================
 
-  /** Fetch manager's theme on component load */
-  useEffect(() => {
+/** Fetch manager's theme on component load */
+useEffect(() => {
     const fetchManagerTheme = async () => {
-      try {
+    try {
         const response = await fetch('http://localhost:8080/manager/profile');
         if (response.ok) {
-          const data = await response.json();
-          const managerTheme = data.manager?.storeSettings?.storeTheme || 'dark';
-          
-          // Only update if no theme is set in localStorage, otherwise preserve user's choice
-          const currentStoredTheme = localStorage.getItem('storeZenTheme');
-          if (!currentStoredTheme) {
+        const data = await response.json();
+        const managerTheme = data.manager?.storeSettings?.storeTheme || 'dark';
+        
+        // Only update if no theme is set in localStorage, otherwise preserve user's choice
+        const currentStoredTheme = localStorage.getItem('storeZenTheme');
+        if (!currentStoredTheme) {
             setCurrentTheme(managerTheme);
             localStorage.setItem('storeZenTheme', managerTheme);
-          }
-          
-          // Always save manager's theme for toggle reference
-          localStorage.setItem('managerStoreTheme', managerTheme);
         }
-      } catch (error) {
+        
+        // Always save manager's theme for toggle reference
+        localStorage.setItem('managerStoreTheme', managerTheme);
+        }
+    } catch (error) {
         console.log('Could not fetch manager theme, using default');
-      }
+    }
     };
 
     fetchManagerTheme();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+}, []); // Only run once on mount
 
-  /** Listen for localStorage changes from other pages */
-  useEffect(() => {
+/** Listen for localStorage changes from other pages */
+useEffect(() => {
     const handleStorageChange = (e) => {
-      // Update store name when changed from manager page
-      if (e.key === 'storeName' && e.newValue !== null) {
+    // Update store name when changed from manager page
+    if (e.key === 'storeName' && e.newValue !== null) {
         setStoreName(e.newValue);
-      }
-      
-      // Update theme when changed from manager page
-      if (e.key === 'storeZenTheme' && e.newValue !== null) {
+    }
+    
+    // Update theme when changed from manager page
+    if (e.key === 'storeZenTheme' && e.newValue !== null) {
         setCurrentTheme(e.newValue);
-      }
+    }
     };
 
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount
+}, []); // Only run once on mount
 
-  // =============================================================================
-  // THEME FUNCTIONS
-  // =============================================================================
+// =============================================================================
+// THEME FUNCTIONS
+// =============================================================================
 
-  /** Toggle between light theme and manager's selected store theme */
-  const toggleTheme = () => {
+/** Toggle between light theme and manager's selected store theme */
+const toggleTheme = () => {
     if (currentTheme === 'light') {
-      // Switch from light to manager's selected theme
-      const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
-      setCurrentTheme(savedManagerTheme);
-      localStorage.setItem('storeZenTheme', savedManagerTheme);
-      
-      // Dispatch event to sync with manager page
-      window.dispatchEvent(new StorageEvent('storage', {
+    // Switch from light to manager's selected theme
+    const savedManagerTheme = localStorage.getItem('managerStoreTheme') || 'dark';
+    setCurrentTheme(savedManagerTheme);
+    localStorage.setItem('storeZenTheme', savedManagerTheme);
+    
+    // Dispatch event to sync with manager page
+    window.dispatchEvent(new StorageEvent('storage', {
         key: 'storeZenTheme',
         newValue: savedManagerTheme,
         oldValue: 'light'
-      }));
+    }));
     } else {
-      // Switch to light mode and save it
-      setCurrentTheme('light');
-      // Don't change the manager's stored theme, just switch to light
-      localStorage.setItem('storeZenTheme', 'light');
-      
-      // Dispatch event to sync with manager page
-      window.dispatchEvent(new StorageEvent('storage', {
+    // Switch to light mode and save it
+    setCurrentTheme('light');
+    // Don't change the manager's stored theme, just switch to light
+    localStorage.setItem('storeZenTheme', 'light');
+    
+    // Dispatch event to sync with manager page
+    window.dispatchEvent(new StorageEvent('storage', {
         key: 'storeZenTheme',
         newValue: 'light',
         oldValue: currentTheme
-      }));
+    }));
     }
-  };
+};
 
 // Get theme styles and extend with additional properties for landing page
 const baseThemeStyles = getThemeStyles(currentTheme);
