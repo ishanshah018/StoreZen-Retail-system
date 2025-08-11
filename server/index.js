@@ -13,6 +13,7 @@ const CouponRouter = require('./Routes/CouponRouter');
 const SmartCoinsRouter = require('./Routes/SmartCoinsRouter');
 const FeedbackRouter = require('./Routes/FeedbackRouter');
 const WishlistRouter = require('./Routes/WishlistRouter');
+const BillingRouter = require('./Routes/BillingRouter');
 
 require('./Models/db');
 
@@ -41,6 +42,7 @@ app.use('/api/coupons', CouponRouter);
 app.use('/api/smartcoins', SmartCoinsRouter);
 app.use('/api/feedback', FeedbackRouter);
 app.use('/api/wishlist', WishlistRouter);
+app.use('/api/billing', BillingRouter);
 
 
 // Start server

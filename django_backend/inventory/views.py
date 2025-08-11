@@ -281,6 +281,81 @@ def restock_product(request):
         }, status=500)
 
 
+@api_view(['POST'])
+def update_stock_after_purchase(request):
+    """
+    Update stock quantities after a successful purchase
+    Reduces stock for multiple products in a single transaction
+    """
+    try:
+        items = request.data.get('items', [])
+        
+        if not items:
+            return Response({'error': 'Items list is required'}, status=400)
+        
+        updated_products = []
+        errors = []
+        
+        # Process each item in the cart
+        for item in items:
+            product_id = item.get('productId') or item.get('id')
+            quantity = item.get('quantity', 0)
+            
+            if not product_id or quantity <= 0:
+                errors.append(f"Invalid item data: {item}")
+                continue
+            
+            try:
+                # Find the product
+                product = Product.objects.get(id=product_id)
+                
+                # Check if enough stock is available
+                if product.stock < quantity:
+                    errors.append(f"Insufficient stock for {product.name}. Available: {product.stock}, Requested: {quantity}")
+                    continue
+                
+                # Update stock
+                original_stock = product.stock
+                product.stock -= int(quantity)
+                product.save()  # This will automatically update in_stock field via model's save method
+                
+                updated_products.append({
+                    'productId': product.id,
+                    'productName': product.name,
+                    'originalStock': original_stock,
+                    'purchasedQuantity': int(quantity),
+                    'newStock': product.stock,
+                    'inStock': product.in_stock
+                })
+                
+            except Product.DoesNotExist:
+                errors.append(f"Product with ID {product_id} not found")
+                continue
+            except Exception as e:
+                errors.append(f"Error updating stock for product {product_id}: {str(e)}")
+                continue
+        
+        # Return response
+        response_data = {
+            'success': len(updated_products) > 0,
+            'message': f'Stock updated for {len(updated_products)} products',
+            'updatedProducts': updated_products
+        }
+        
+        if errors:
+            response_data['errors'] = errors
+            response_data['message'] += f', {len(errors)} errors occurred'
+        
+        status_code = 200 if len(updated_products) > 0 else 400
+        return Response(response_data, status=status_code)
+        
+    except Exception as e:
+        return Response({
+            'success': False,
+            'error': f'Error updating stock: {str(e)}'
+        }, status=500)
+
+
 @api_view(['GET'])
 def twilio_account_status(request):
     """

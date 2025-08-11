@@ -1,0 +1,453 @@
+const User = require('../Models/User');
+const Bill = require('../Models/Bill');
+const Coupon = require('../Models/Coupon');
+
+// =============================================================================
+// SMART BILLING CONTROLLER
+// =============================================================================
+
+/**
+ * Get available coupons for a customer
+ * Returns all active coupons that the customer can use
+ */
+const getAvailableCoupons = async (req, res) => {
+    try {
+        const currentDate = new Date();
+        
+        // Fetch all active coupons that are currently valid
+        const coupons = await Coupon.find({
+            is_active: true,
+            valid_from: { $lte: currentDate },
+            valid_until: { $gte: currentDate }
+        }).select('-createdAt -updatedAt');
+
+        res.status(200).json({
+            success: true,
+            message: 'Available coupons fetched successfully',
+            coupons: coupons
+        });
+    } catch (error) {
+        console.error('Error fetching available coupons:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch available coupons',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Validate and calculate coupon discount
+ * Checks if coupon is valid and calculates applicable discount
+ */
+const validateCoupon = async (req, res) => {
+    try {
+        const { couponCode, cartTotal, items } = req.body;
+
+        if (!couponCode || !cartTotal) {
+            return res.status(400).json({
+                success: false,
+                message: 'Coupon code and cart total are required'
+            });
+        }
+
+        const currentDate = new Date();
+        
+        // Find the coupon
+        const coupon = await Coupon.findOne({
+            coupon_code: couponCode.toUpperCase(),
+            is_active: true,
+            valid_from: { $lte: currentDate },
+            valid_until: { $gte: currentDate }
+        });
+
+        if (!coupon) {
+            return res.status(404).json({
+                success: false,
+                message: 'Invalid or expired coupon code'
+            });
+        }
+
+        // Check minimum purchase requirement
+        if (cartTotal < coupon.min_purchase) {
+            return res.status(400).json({
+                success: false,
+                message: `Minimum purchase of ₹${coupon.min_purchase} required for this coupon`
+            });
+        }
+
+        // Check category applicability if items provided
+        if (items && items.length > 0 && coupon.applicable_categories.length > 0) {
+            const applicableItems = items.filter(item => 
+                coupon.applicable_categories.includes(item.category) ||
+                coupon.applicable_categories.includes('All')
+            );
+            
+            if (applicableItems.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'This coupon is not applicable to any items in your cart'
+                });
+            }
+        }
+
+        // Calculate discount
+        let discount = 0;
+        if (coupon.type === '%') {
+            discount = (cartTotal * coupon.value) / 100;
+            if (discount > coupon.max_discount) {
+                discount = coupon.max_discount;
+            }
+        } else if (coupon.type === 'rs') {
+            discount = Math.min(coupon.value, cartTotal);
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Coupon applied successfully',
+            discount: Math.round(discount * 100) / 100, // Round to 2 decimal places
+            couponDetails: {
+                code: coupon.coupon_code,
+                type: coupon.type,
+                value: coupon.value,
+                maxDiscount: coupon.max_discount
+            }
+        });
+
+    } catch (error) {
+        console.error('Error validating coupon:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to validate coupon',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get Smart Coins balance for a user
+ */
+const getSmartCoinsBalance = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId).select('smartCoins');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Smart Coins balance fetched successfully',
+            balance: user.smartCoins.balance || 0
+        });
+
+    } catch (error) {
+        console.error('Error fetching smart coins balance:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch smart coins balance',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Create a new bill and process payment
+ */
+const createBill = async (req, res) => {
+    try {
+        const {
+            customerId,
+            customerName,
+            customerEmail,
+            items,
+            subtotal,
+            couponCode,
+            couponDiscount,
+            smartCoinsUsed,
+            paymentMethod
+        } = req.body;
+
+        // Validation
+        if (!customerId || !customerName || !customerEmail || !items || !subtotal || !paymentMethod) {
+            return res.status(400).json({
+                success: false,
+                message: 'All required fields must be provided'
+            });
+        }
+
+        if (!items.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cart cannot be empty'
+            });
+        }
+
+        // Calculate Smart Coins discount (1 coin = ₹1)
+        const smartCoinsDiscount = smartCoinsUsed || 0;
+        
+        // Calculate total discount
+        const totalDiscount = (couponDiscount || 0) + smartCoinsDiscount;
+        
+        // Calculate final amount
+        const finalAmount = Math.max(0, subtotal - totalDiscount);
+        
+        // Calculate Smart Coins earned (1% of final amount, minimum 1 coin per ₹100)
+        const smartCoinsEarned = Math.floor(finalAmount * 0.01);
+
+        // Generate unique bill ID
+        const billId = `BILL-${Date.now()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+
+        // Create bill object
+        const newBill = new Bill({
+            billId,
+            customerName,
+            customerEmail,
+            customerId,
+            items: items.map(item => ({
+                productId: item.id,
+                productName: item.name,
+                category: item.category,
+                price: item.price,
+                quantity: item.quantity,
+                itemTotal: item.price * item.quantity
+            })),
+            billing: {
+                subtotal,
+                couponDiscount: couponDiscount || 0,
+                couponCode: couponCode || null,
+                smartCoinsUsed,
+                smartCoinsDiscount,
+                totalDiscount,
+                finalAmount,
+                smartCoinsEarned
+            },
+            paymentMethod,
+            paymentStatus: 'Paid' // Since we're bypassing real payment
+        });
+
+        // Save the bill
+        const savedBill = await newBill.save();
+
+        // Update user's Smart Coins balance
+        const user = await User.findById(customerId);
+        if (user) {
+            // Deduct used Smart Coins
+            user.smartCoins.balance = (user.smartCoins.balance || 0) - smartCoinsUsed;
+            
+            // Add earned Smart Coins
+            user.smartCoins.balance += smartCoinsEarned;
+            
+            // Add transaction records
+            if (smartCoinsUsed > 0) {
+                user.smartCoins.transactions.push({
+                    amount: smartCoinsUsed,
+                    type: 'spent',
+                    description: `Used for bill ${billId}`,
+                    earnedDate: new Date()
+                });
+            }
+            
+            if (smartCoinsEarned > 0) {
+                const expiryDate = new Date();
+                expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year expiry
+                
+                user.smartCoins.transactions.push({
+                    amount: smartCoinsEarned,
+                    type: 'earned',
+                    description: `Earned from bill ${billId}`,
+                    earnedDate: new Date(),
+                    expiryDate: expiryDate
+                });
+            }
+            
+            await user.save();
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'Bill created successfully',
+            bill: savedBill,
+            smartCoinsEarned: smartCoinsEarned,
+            newSmartCoinsBalance: (user?.smartCoins.balance || 0)
+        });
+
+    } catch (error) {
+        console.error('Error creating bill:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to create bill',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get customer's bill history
+ */
+const getBillHistory = async (req, res) => {
+    try {
+        const { customerId } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+
+        const bills = await Bill.find({ customerId })
+            .sort({ billDate: -1 })
+            .limit(limit * 1)
+            .skip((page - 1) * limit);
+
+        const totalBills = await Bill.countDocuments({ customerId });
+        const totalPages = Math.ceil(totalBills / limit);
+
+        res.status(200).json({
+            success: true,
+            message: 'Bill history fetched successfully',
+            bills,
+            pagination: {
+                currentPage: page,
+                totalPages,
+                totalBills,
+                hasMore: page < totalPages
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching bill history:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch bill history',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get a specific bill by ID
+ */
+const getBillById = async (req, res) => {
+    try {
+        const { billId } = req.params;
+
+        const bill = await Bill.findOne({ billId });
+
+        if (!bill) {
+            return res.status(404).json({
+                success: false,
+                message: 'Bill not found'
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Bill fetched successfully',
+            bill
+        });
+
+    } catch (error) {
+        console.error('Error fetching bill:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch bill',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Find best available coupon for cart automatically
+ */
+const findBestCoupon = async (req, res) => {
+    try {
+        const { cartTotal, items } = req.body;
+
+        if (!cartTotal) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cart total is required'
+            });
+        }
+
+        const currentDate = new Date();
+        
+        // Get all valid coupons
+        const coupons = await Coupon.find({
+            is_active: true,
+            valid_from: { $lte: currentDate },
+            valid_until: { $gte: currentDate },
+            min_purchase: { $lte: cartTotal }
+        });
+
+        let bestCoupon = null;
+        let maxDiscount = 0;
+
+        // Find the coupon with maximum discount
+        for (const coupon of coupons) {
+            // Check category applicability
+            if (items && items.length > 0 && coupon.applicable_categories.length > 0) {
+                const applicableItems = items.filter(item => 
+                    coupon.applicable_categories.includes(item.category) ||
+                    coupon.applicable_categories.includes('All')
+                );
+                
+                if (applicableItems.length === 0) continue;
+            }
+
+            // Calculate discount for this coupon
+            let discount = 0;
+            if (coupon.type === '%') {
+                discount = (cartTotal * coupon.value) / 100;
+                if (discount > coupon.max_discount) {
+                    discount = coupon.max_discount;
+                }
+            } else if (coupon.type === 'rs') {
+                discount = Math.min(coupon.value, cartTotal);
+            }
+
+            if (discount > maxDiscount) {
+                maxDiscount = discount;
+                bestCoupon = coupon;
+            }
+        }
+
+        if (bestCoupon) {
+            res.status(200).json({
+                success: true,
+                message: 'Best coupon found',
+                coupon: {
+                    code: bestCoupon.coupon_code,
+                    type: bestCoupon.type,
+                    value: bestCoupon.value,
+                    discount: Math.round(maxDiscount * 100) / 100
+                }
+            });
+        } else {
+            res.status(200).json({
+                success: true,
+                message: 'No applicable coupons found',
+                coupon: null
+            });
+        }
+
+    } catch (error) {
+        console.error('Error finding best coupon:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to find best coupon',
+            error: error.message
+        });
+    }
+};
+
+module.exports = {
+    getAvailableCoupons,
+    validateCoupon,
+    getSmartCoinsBalance,
+    createBill,
+    getBillHistory,
+    getBillById,
+    findBestCoupon
+};

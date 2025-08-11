@@ -22,7 +22,8 @@ GradientBadge
 // Icons
 import {
     User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
-    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle
+    Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle,
+    CreditCard,Smartphone,Tag,Check,IndianRupee
 } from "lucide-react";
 
 // Utilities and API
@@ -95,6 +96,11 @@ buildTrie(products) {
     });
     });
 }
+
+/** Clear the trie */
+clear() {
+    this.root = new TrieNode();
+}
 }
 
 // =============================================================================
@@ -164,6 +170,27 @@ const [feedbackText, setFeedbackText] = useState(''); // Optional feedback text
 const [feedbackLoading, setFeedbackLoading] = useState(false); // Feedback submission loading
 const [feedbackError, setFeedbackError] = useState(''); // Feedback error message
 const [feedbackSuccess, setFeedbackSuccess] = useState(false); // Feedback success state
+
+// Smart Billing states
+const [showSmartBillingModal, setShowSmartBillingModal] = useState(false); // Smart Billing modal toggle
+const [billingStep, setBillingStep] = useState('search'); // Current billing step: search, cart, payment, preview, success
+const [billingProducts, setBillingProducts] = useState([]); // Products available for billing
+const [searchResults, setSearchResults] = useState([]); // Product search results
+const [billingSearchQuery, setBillingSearchQuery] = useState(''); // Product search query
+const [billingTrie] = useState(new Trie()); // Search index for billing
+const [cart, setCart] = useState([]); // Shopping cart items
+const [cartTotal, setCartTotal] = useState(0); // Cart subtotal
+const [appliedCoupon, setAppliedCoupon] = useState(null); // Applied coupon
+const [couponDiscount, setCouponDiscount] = useState(0); // Coupon discount amount
+const [manualCouponCode, setManualCouponCode] = useState(''); // Manual coupon code input
+const [couponError, setCouponError] = useState(''); // Specific coupon error message
+const [smartCoinsBalance, setSmartCoinsBalance] = useState(0); // User's smart coins balance
+const [smartCoinsToUse, setSmartCoinsToUse] = useState(0); // Smart coins to use for payment
+const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(''); // Selected payment method
+const [billingLoading, setBillingLoading] = useState(false); // Billing operation loading state
+const [billingError, setBillingError] = useState(''); // Billing error message
+const [generatedBill, setGeneratedBill] = useState(null); // Generated bill data
+const [showPaymentSuccess, setShowPaymentSuccess] = useState(false); // Payment success animation
 
 // =============================================================================
 // LIFECYCLE EFFECTS
@@ -335,6 +362,453 @@ const fetchSmartCoins = async () => {
 const showSmartCoinsView = () => {
     setShowSmartCoinsModal(true);
     fetchSmartCoins();
+};
+
+// =============================================================================
+// SMART BILLING FUNCTIONS
+// =============================================================================
+
+/** Show Smart Billing modal and initialize */
+const showSmartBillingView = () => {
+    setShowSmartBillingModal(true);
+    setBillingStep('search');
+    setCart([]);
+    setCartTotal(0);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setSmartCoinsToUse(0);
+    setSelectedPaymentMethod('');
+    setBillingError('');
+    setGeneratedBill(null);
+    setManualCouponCode('');
+    setCouponError('');
+    fetchBillingProducts();
+    fetchSmartCoinsBalance();
+    fetchAvailableCoupons();
+};
+
+/** Fetch products for billing */
+const fetchBillingProducts = async () => {
+    try {
+        setBillingLoading(true);
+        const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.customerProducts));
+        if (!response.ok) throw new Error('Failed to fetch products');
+        
+        const productsData = await response.json();
+        setBillingProducts(productsData);
+        
+        // Build Trie index for search
+        billingTrie.clear();
+        productsData.forEach(product => {
+            const words = [
+                product.name,
+                product.category,
+                product.description || ''
+            ].join(' ').toLowerCase().split(/\s+/);
+            
+            words.forEach(word => {
+                if (word.length > 0) {
+                    billingTrie.insert(word, product);
+                }
+            });
+        });
+        
+        setSearchResults(productsData); // Show all products initially
+        
+    } catch (error) {
+        setBillingError('Failed to load products for billing');
+        console.error('Error fetching billing products:', error);
+    } finally {
+        setBillingLoading(false);
+    }
+};
+
+/** Search products for billing */
+const handleBillingSearch = (query) => {
+    setBillingSearchQuery(query);
+    
+    if (!query.trim()) {
+        setSearchResults(billingProducts);
+        return;
+    }
+    
+    // Use Trie search
+    const results = billingTrie.search(query);
+    // Remove duplicates based on product ID
+    const uniqueResults = results.filter((product, index, self) => 
+        index === self.findIndex(p => p.id === product.id)
+    );
+    setSearchResults(uniqueResults);
+    
+    // Smooth scroll to products grid after search
+    setTimeout(() => {
+        const productsGrid = document.querySelector('.products-grid-container');
+        if (productsGrid) {
+            productsGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
+};
+
+/** Add product to cart */
+const addToCart = (product) => {
+    setCart(prevCart => {
+        const existingItem = prevCart.find(item => item.id === product.id);
+        
+        if (existingItem) {
+            // Check stock availability
+            if (existingItem.quantity >= product.stock) {
+                setBillingError(`Only ${product.stock} items available for ${product.name}`);
+                setTimeout(() => setBillingError(''), 3000);
+                return prevCart;
+            }
+            
+            // Update quantity
+            const updatedCart = prevCart.map(item =>
+                item.id === product.id
+                    ? { ...item, quantity: item.quantity + 1 }
+                    : item
+            );
+            updateCartTotal(updatedCart);
+            
+            // Show success feedback with gentle shake animation
+            setTimeout(() => {
+                const cartSummary = document.querySelector('.cart-summary-section');
+                if (cartSummary) {
+                    cartSummary.style.animation = 'bounceIn 0.5s ease-out';
+                    setTimeout(() => {
+                        cartSummary.style.animation = '';
+                    }, 500);
+                }
+            }, 100);
+            
+            return updatedCart;
+        } else {
+            // Check stock availability
+            if (product.stock <= 0) {
+                setBillingError(`${product.name} is out of stock`);
+                setTimeout(() => setBillingError(''), 3000);
+                return prevCart;
+            }
+            
+            // Add new item
+            const newCart = [...prevCart, { 
+                ...product, 
+                quantity: 1,
+                itemTotal: product.price 
+            }];
+            updateCartTotal(newCart);
+            
+            // Smooth scroll to cart summary and highlight it
+            setTimeout(() => {
+                const cartSummary = document.querySelector('.cart-summary-section');
+                if (cartSummary) {
+                    cartSummary.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    cartSummary.style.animation = 'bounceIn 0.5s ease-out';
+                    setTimeout(() => {
+                        cartSummary.style.animation = '';
+                    }, 500);
+                }
+            }, 100);
+            
+            return newCart;
+        }
+    });
+};
+
+/** Remove product from cart */
+const removeFromCart = (productId) => {
+    setCart(prevCart => {
+        const updatedCart = prevCart.filter(item => item.id !== productId);
+        updateCartTotal(updatedCart);
+        return updatedCart;
+    });
+};
+
+/** Update item quantity in cart */
+const updateCartQuantity = (productId, newQuantity) => {
+    if (newQuantity <= 0) {
+        removeFromCart(productId);
+        return;
+    }
+    
+    setCart(prevCart => {
+        const updatedCart = prevCart.map(item => {
+            if (item.id === productId) {
+                // Check stock availability
+                if (newQuantity > item.stock) {
+                    setBillingError(`Only ${item.stock} items available for ${item.name}`);
+                    setTimeout(() => setBillingError(''), 3000);
+                    return item;
+                }
+                
+                return { 
+                    ...item, 
+                    quantity: newQuantity,
+                    itemTotal: item.price * newQuantity
+                };
+            }
+            return item;
+        });
+        updateCartTotal(updatedCart);
+        return updatedCart;
+    });
+};
+
+/** Update cart total and handle coupon revalidation */
+const updateCartTotal = (cartItems) => {
+    const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    setCartTotal(subtotal);
+    
+    // Revalidate applied coupon if cart total changes
+    if (appliedCoupon && cartItems.length > 0) {
+        validateCouponForCart(appliedCoupon.code, subtotal, cartItems);
+    } else if (cartItems.length === 0) {
+        // Clear coupon if cart is empty
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+    }
+};
+
+/** Fetch Smart Coins balance */
+const fetchSmartCoinsBalance = async () => {
+    try {
+        const userId = localStorage.getItem('userId');
+        if (!userId) return;
+        
+        const response = await fetch(buildApiUrl('node', `${API_CONFIG.endpoints.node.billing.smartCoinsBalance}/${userId}`));
+        if (!response.ok) throw new Error('Failed to fetch smart coins balance');
+        
+        const result = await response.json();
+        if (result.success) {
+            setSmartCoinsBalance(result.balance);
+        }
+    } catch (error) {
+        console.error('Error fetching smart coins balance:', error);
+        setSmartCoinsBalance(0);
+    }
+};
+
+/** Fetch available coupons */
+const fetchAvailableCoupons = async () => {
+    try {
+        const response = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.billing.availableCoupons));
+        if (!response.ok) throw new Error('Failed to fetch coupons');
+        
+        const result = await response.json();
+        if (result.success) {
+            // Coupons fetched successfully - using manual entry now
+        }
+    } catch (error) {
+        console.error('Error fetching available coupons:', error);
+    }
+};
+
+/** Apply best coupon automatically */
+const applyBestCoupon = async () => {
+    if (cartTotal === 0) return;
+    
+    try {
+        setBillingLoading(true);
+        
+        const response = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.billing.findBestCoupon), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                cartTotal: cartTotal,
+                items: cart
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to find best coupon');
+        
+        const result = await response.json();
+        if (result.success && result.coupon) {
+            setAppliedCoupon(result.coupon);
+            setCouponDiscount(result.coupon.discount);
+        } else {
+            setBillingError('No applicable coupons found');
+            setTimeout(() => setBillingError(''), 3000);
+        }
+        
+    } catch (error) {
+        setBillingError('Failed to apply coupon automatically');
+        setTimeout(() => setBillingError(''), 3000);
+        console.error('Error applying best coupon:', error);
+    } finally {
+        setBillingLoading(false);
+    }
+};
+
+/** Validate and apply coupon manually */
+const validateCouponForCart = async (couponCode, total = cartTotal, items = cart) => {
+    if (!couponCode || total === 0) return;
+    
+    try {
+        setBillingLoading(true);
+        setCouponError('');
+        
+        const response = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.billing.validateCoupon), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                couponCode: couponCode,
+                cartTotal: total,
+                items: items
+            })
+        });
+        
+        if (!response.ok) throw new Error('Failed to validate coupon');
+        
+        const result = await response.json();
+        if (result.success) {
+            setAppliedCoupon({
+                code: result.couponDetails.code,
+                discount: result.discount,
+                ...result.couponDetails
+            });
+            setCouponDiscount(result.discount);
+            setManualCouponCode('');
+            setCouponError('');
+        } else {
+            // Show specific error messages
+            const errorMessage = result.message || 'Invalid coupon code';
+            setCouponError(errorMessage);
+            setTimeout(() => setCouponError(''), 5000);
+        }
+        
+    } catch (error) {
+        setCouponError('Failed to validate coupon. Please try again.');
+        setTimeout(() => setCouponError(''), 5000);
+        console.error('Error validating coupon:', error);
+    } finally {
+        setBillingLoading(false);
+    }
+};
+
+/** Handle Smart Coins usage */
+const handleSmartCoinsChange = (amount) => {
+    const maxUsable = Math.min(smartCoinsBalance, cartTotal - couponDiscount);
+    const coinsToUse = Math.min(Math.max(0, amount), maxUsable);
+    setSmartCoinsToUse(coinsToUse);
+};
+
+/** Calculate final amount */
+const calculateFinalAmount = () => {
+    return Math.max(0, cartTotal - couponDiscount - smartCoinsToUse);
+};
+
+/** Process payment and create bill */
+const processBilling = async () => {
+    if (!selectedPaymentMethod) {
+        setBillingError('Please select a payment method');
+        return;
+    }
+    
+    if (cart.length === 0) {
+        setBillingError('Cart is empty');
+        return;
+    }
+    
+    try {
+        setBillingLoading(true);
+        setBillingError('');
+        
+        const userId = localStorage.getItem('userId');
+        const customerName = localStorage.getItem('customerName');
+        const customerEmail = localStorage.getItem('loggedInUser'); // Assuming this stores email
+        
+        if (!userId || !customerName) {
+            setBillingError('User authentication required');
+            return;
+        }
+        
+        // Create bill request
+        const billData = {
+            customerId: userId,
+            customerName: customerName,
+            customerEmail: customerEmail || 'customer@email.com',
+            items: cart.map(item => ({
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                price: item.price,
+                quantity: item.quantity
+            })),
+            subtotal: cartTotal,
+            couponCode: appliedCoupon?.code || null,
+            couponDiscount: couponDiscount,
+            smartCoinsUsed: smartCoinsToUse,
+            paymentMethod: selectedPaymentMethod
+        };
+        
+        // Create bill
+        const billResponse = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.billing.createBill), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(billData)
+        });
+        
+        if (!billResponse.ok) throw new Error('Failed to create bill');
+        
+        const billResult = await billResponse.json();
+        if (!billResult.success) {
+            setBillingError(billResult.message || 'Failed to create bill');
+            return;
+        }
+        
+        // Update stock in Django backend
+        const stockResponse = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.updateStock), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                items: cart.map(item => ({
+                    productId: item.id,
+                    quantity: item.quantity
+                }))
+            })
+        });
+        
+        if (!stockResponse.ok) {
+            console.warn('Failed to update stock, but bill was created');
+        }
+        
+        // Success - show bill and update state
+        setGeneratedBill(billResult.bill);
+        setSmartCoinsBalance(billResult.newSmartCoinsBalance);
+        setBillingStep('success');
+        setShowPaymentSuccess(true);
+        
+        // Clear cart
+        setCart([]);
+        setCartTotal(0);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setSmartCoinsToUse(0);
+        
+    } catch (error) {
+        setBillingError('Payment processing failed. Please try again.');
+        console.error('Error processing billing:', error);
+    } finally {
+        setBillingLoading(false);
+    }
+};
+
+/** Reset billing modal */
+const resetBillingModal = () => {
+    setBillingStep('search');
+    setCart([]);
+    setCartTotal(0);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setSmartCoinsToUse(0);
+    setSelectedPaymentMethod('');
+    setBillingError('');
+    setGeneratedBill(null);
+    setShowPaymentSuccess(false);
+    setBillingSearchQuery('');
+    setSearchResults(billingProducts);
+    setManualCouponCode('');
+    setCouponError('');
 };
 
 // =============================================================================
@@ -1283,6 +1757,8 @@ return (
                 showFeedbackView();
                 } else if (feature.title === "See Your Wishlisted Items") {
                 showWishlistView();
+                } else if (feature.title === "Smart Billing") {
+                showSmartBillingView();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -2230,6 +2706,988 @@ return (
             </div>
         </div>
         </div>
+    )}
+    
+    {/* =============================================================================
+        SMART BILLING MODAL - COMPREHENSIVE BILLING SYSTEM
+        ============================================================================= */}
+    {showSmartBillingModal && (
+        <>
+        {/* CSS Animations for Smart Billing */}
+        <style jsx>{`
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideInFromLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideInFromRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.05);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .scroll-smooth {
+            scroll-behavior: smooth;
+        }
+        
+        .scrollbar-thin {
+            scrollbar-width: thin;
+        }
+        
+        .scrollbar-thumb-gray-300 {
+            scrollbar-color: #d1d5db #f3f4f6;
+        }
+        
+        .dark .scrollbar-thumb-gray-600 {
+            scrollbar-color: #4b5563 #1f2937;
+        }
+        
+        /* Webkit scrollbar styling */
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 10px;
+        }
+        
+        .dark .scrollbar-thin::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 10px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: #4b5563;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+        
+        .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        
+        .hover\\:scale-102:hover {
+            transform: scale(1.02);
+        }
+        
+        /* Pulse effect for active elements */
+        .billing-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
+        }
+        
+        /* Shimmer effect for loading */
+        .billing-shimmer {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        
+        /* Smooth transitions for all elements */
+        * {
+            transition: all 0.3s ease;
+        }
+        `}</style>
+        
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+        <div className={`${themeStyles.cardBg} rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden border ${themeStyles.border} transform animate-in slide-in-from-bottom duration-500`}>
+            
+            {/* Header */}
+            <div className={`${themeStyles.headerBg} px-6 py-4 border-b ${themeStyles.border} flex items-center justify-between`}>
+            <div className="flex items-center space-x-3">
+                <Receipt className={`h-6 w-6 ${themeStyles.accent}`} />
+                <h2 className={`text-xl font-bold ${themeStyles.text}`}>Smart Billing System</h2>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-700`}>
+                {billingStep === 'search' && 'Search Products'}
+                {billingStep === 'cart' && 'Review Cart'}
+                {billingStep === 'payment' && 'Payment Options'}
+                {billingStep === 'preview' && 'Bill Preview'}
+                {billingStep === 'success' && 'Payment Complete'}
+                </div>
+            </div>
+            <button
+                onClick={() => setShowSmartBillingModal(false)}
+                className={`${themeStyles.textSecondary} hover:${themeStyles.text} transition-colors`}
+            >
+                <X className="h-6 w-6" />
+            </button>
+            </div>
+
+            {/* Step Progress Bar */}
+            <div className="px-6 py-3">
+            <div className="flex items-center justify-between">
+                {['search', 'cart', 'payment', 'preview', 'success'].map((step, index) => {
+                const isActive = billingStep === step;
+                const isCompleted = ['search', 'cart', 'payment', 'preview', 'success'].indexOf(billingStep) > index;
+                
+                return (
+                    <div key={step} className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
+                        isActive ? `${themeStyles.accent.replace('text-', 'bg-')} text-white` :
+                        isCompleted ? 'bg-green-500 text-white' :
+                        `${themeStyles.cardBg} border-2 ${themeStyles.border} ${themeStyles.textSecondary}`
+                    }`}>
+                        {isCompleted ? <Check className="h-4 w-4" /> : index + 1}
+                    </div>
+                    {index < 4 && (
+                        <div className={`h-0.5 w-16 mx-2 ${
+                        isCompleted ? 'bg-green-500' : `${themeStyles.border}`
+                        }`} />
+                    )}
+                    </div>
+                );
+                })}
+            </div>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 billing-modal-content relative">
+
+            {/* Step 1: Product Search */}
+            {billingStep === 'search' && (
+                <div className="p-6 space-y-6">
+                
+                {/* Search Header */}
+                <div className="text-center mb-6">
+                    <h3 className={`text-2xl font-bold ${themeStyles.text} mb-2`}>Find Products</h3>
+                    <p className={`${themeStyles.textSecondary}`}>Search and add products to your cart</p>
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative group">
+                    <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${themeStyles.textSecondary} group-focus-within:text-blue-500 transition-colors duration-300`} />
+                    <input
+                    type="text"
+                    value={billingSearchQuery}
+                    onChange={(e) => handleBillingSearch(e.target.value)}
+                    placeholder="Search products (e.g., Colgate, toothpaste)..."
+                    className={`w-full pl-10 pr-4 py-3 border rounded-lg ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text} placeholder:${themeStyles.textSecondary} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:shadow-lg transition-all duration-300 transform focus:scale-105`}
+                    />
+                </div>
+
+                {/* Cart Summary (if not empty) */}
+                {cart.length > 0 && (
+                    <div className={`${themeStyles.cardBg} rounded-lg p-4 border ${themeStyles.border} cart-summary-section transition-all duration-300`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className={`font-semibold ${themeStyles.text} flex items-center`}>
+                        <ShoppingCart className="h-5 w-5 mr-2" />
+                        Cart ({cart.length} items)
+                        </h4>
+                        <span className={`font-bold ${themeStyles.accent}`}>₹{cartTotal.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        {cart.slice(0, 3).map((item, index) => (
+                        <div key={item.id} className="px-2 py-1 rounded text-xs bg-violet-100 dark:bg-violet-900/50 text-violet-800 dark:text-violet-200 border border-violet-200 dark:border-violet-700">
+                            {item.name} x{item.quantity}
+                        </div>
+                        ))}
+                        {cart.length > 3 && (
+                        <span className={`text-xs ${themeStyles.textSecondary}`}>+{cart.length - 3} more</span>
+                        )}
+                        <button
+                        onClick={() => {
+                            setBillingStep('cart');
+                            // Smooth scroll to top when switching steps
+                            setTimeout(() => {
+                                const modalContent = document.querySelector('.billing-modal-content');
+                                if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                            }, 100);
+                        }}
+                        className="ml-auto px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-all duration-300 transform hover:scale-105 hover:shadow-lg"
+                        >
+                        Review Cart
+                        </button>
+                    </div>
+                    </div>
+                )}
+
+                {/* Products Grid */}
+                <div className="products-grid-container">
+                {billingLoading ? (
+                    <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                    <span className={`ml-3 ${themeStyles.textSecondary}`}>Loading products...</span>
+                    </div>
+                ) : (
+                    <div className="relative">
+                    <div className="max-h-96 overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500 pr-2">
+                    
+                    {/* Scroll Indicator */}
+                    {searchResults.length > 6 && (
+                        <div className="absolute top-2 right-2 z-10 px-2 py-1 rounded-full text-xs bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 opacity-75 border border-violet-200 dark:border-violet-700">
+                        Scroll for more
+                        </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {searchResults.map((product, index) => (
+                        <div 
+                        key={product.id} 
+                        className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.border} p-4 hover:shadow-lg transition-all duration-300 group transform hover:scale-105 hover:border-blue-300 dark:hover:border-blue-600`}
+                        style={{
+                            animationDelay: `${index * 0.05}s`,
+                            animation: 'fadeInUp 0.5s ease-out forwards'
+                        }}
+                        >
+                        
+                        {/* Product Info */}
+                        <div className="mb-3">
+                            <h4 className={`font-semibold ${themeStyles.text} group-hover:${themeStyles.accent} transition-colors`}>
+                            {product.name}
+                            </h4>
+                            <p className={`text-sm ${themeStyles.textSecondary} mb-1`}>
+                            {product.category}
+                            </p>
+                            <div className="flex items-center justify-between">
+                            <span className={`text-lg font-bold ${themeStyles.accent}`}>
+                                ₹{product.price}
+                            </span>
+                            <span className={`text-sm px-2 py-1 rounded ${
+                                product.stock > 10 ? 'bg-green-100 text-green-700' :
+                                product.stock > 0 ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                            }`}>
+                                {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                            </span>
+                            </div>
+                        </div>
+
+                        {/* Add to Cart Button */}
+                        <button
+                            onClick={() => addToCart(product)}
+                            disabled={product.stock === 0}
+                            className={`w-full py-2 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 ${
+                            product.stock === 0
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transform hover:scale-105'
+                            }`}
+                        >
+                            <Plus className="h-4 w-4" />
+                            <span>{product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}</span>
+                        </button>
+                        </div>
+                        ))}
+                    </div>
+                    </div>
+                    </div>
+                )}
+                </div>
+                
+                {/* Error Message */}
+                {billingError && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{billingError}</p>
+                    </div>
+                )}
+                </div>
+            )}
+
+            {/* Step 2: Cart Review */}
+            {billingStep === 'cart' && (
+                <div className="h-[600px] overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+                    <div className="p-6 space-y-6">
+                
+                {/* Cart Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                    <h3 className={`text-2xl font-bold ${themeStyles.text} mb-2`}>Review Your Cart</h3>
+                    <p className={`${themeStyles.textSecondary}`}>Adjust quantities and apply discounts</p>
+                    </div>
+                    <button
+                    onClick={() => {
+                        setBillingStep('search');
+                        setTimeout(() => {
+                            const modalContent = document.querySelector('.billing-modal-content');
+                            if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                        }, 100);
+                    }}
+                    className={`flex items-center space-x-2 px-4 py-2 ${themeStyles.cardBg} border ${themeStyles.border} rounded-lg hover:${themeStyles.hoverBg} transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+                    >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to Search</span>
+                    </button>
+                </div>
+
+                {/* Scroll Indicator for Cart */}
+                <div className="text-center mb-4">
+                    <p className="text-sm text-violet-600 dark:text-violet-400 flex items-center justify-center space-x-2">
+                        <span>Scroll for more content</span>
+                        <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce"></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                    </p>
+                </div>
+
+                {/* Cart Items */}
+                {cart.length === 0 ? (
+                    <div className="text-center py-12">
+                    <ShoppingCart className={`h-16 w-16 ${themeStyles.textSecondary} mx-auto mb-4`} />
+                    <p className={`text-lg ${themeStyles.textSecondary}`}>Your cart is empty</p>
+                    <button
+                        onClick={() => setBillingStep('search')}
+                        className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                        Add Products
+                    </button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                    
+                    {/* Cart Items List */}
+                    <div className="space-y-3">
+                        {cart.map((item, index) => (
+                        <div 
+                        key={item.id} 
+                        className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.border} p-4 flex items-center justify-between hover:shadow-md transition-all duration-300 transform hover:scale-102`}
+                        style={{
+                            animationDelay: `${index * 0.1}s`,
+                            animation: 'slideInFromLeft 0.5s ease-out forwards'
+                        }}
+                        >
+                            
+                            {/* Item Info */}
+                            <div className="flex-1">
+                            <h4 className={`font-semibold ${themeStyles.text}`}>{item.name}</h4>
+                            <p className={`text-sm ${themeStyles.textSecondary}`}>{item.category}</p>
+                            <p className={`text-lg font-bold ${themeStyles.accent}`}>₹{item.price} each</p>
+                            </div>
+
+                            {/* Quantity Controls */}
+                            <div className="flex items-center space-x-3">
+                            <button
+                                onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                                className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors"
+                            >
+                                <Minus className="h-4 w-4" />
+                            </button>
+                            <span className={`font-semibold px-3 ${themeStyles.text}`}>{item.quantity}</span>
+                            <button
+                                onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                                disabled={item.quantity >= item.stock}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                                item.quantity >= item.stock
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-green-500 text-white hover:bg-green-600'
+                                }`}
+                            >
+                                <Plus className="h-4 w-4" />
+                            </button>
+                            </div>
+
+                            {/* Item Total & Remove */}
+                            <div className="text-right ml-6">
+                            <p className={`text-lg font-bold ${themeStyles.accent}`}>₹{(item.price * item.quantity).toFixed(2)}</p>
+                            <button
+                                onClick={() => removeFromCart(item.id)}
+                                className="text-red-500 hover:text-red-700 transition-colors mt-1"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                            </div>
+                        </div>
+                        ))}
+                    </div>
+
+                    {/* Cart Summary */}
+                    <div className={`${themeStyles.headerBg} rounded-lg border ${themeStyles.border} p-6`}>
+                        
+                        {/* Subtotal */}
+                        <div className="flex justify-between items-center mb-4">
+                        <span className={`text-lg ${themeStyles.text}`}>Subtotal</span>
+                        <span className={`text-lg font-bold ${themeStyles.text}`}>₹{cartTotal.toFixed(2)}</span>
+                        </div>
+
+                        {/* Apply Coupon Section */}
+                        <div className="mb-4 space-y-3">
+                        <h4 className={`font-semibold ${themeStyles.text} flex items-center`}>
+                            <Tag className="h-5 w-5 mr-2" />
+                            Coupons & Discounts
+                        </h4>
+                        
+                        {/* Auto Apply Best Coupon */}
+                        <button
+                            onClick={applyBestCoupon}
+                            disabled={billingLoading}
+                            className="w-full py-2 px-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-lg hover:from-orange-600 hover:to-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {billingLoading ? 'Finding...' : 'Auto-Apply Best Coupon'}
+                        </button>
+                        
+                        {/* Manual Coupon Code Entry */}
+                        <div className="flex space-x-2">
+                            <input
+                                type="text"
+                                value={manualCouponCode}
+                                onChange={(e) => setManualCouponCode(e.target.value.toUpperCase())}
+                                placeholder="Enter coupon code (e.g., SAVE20)"
+                                className={`flex-1 px-3 py-2 border rounded-lg ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text} placeholder:${themeStyles.textSecondary} focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent`}
+                            />
+                            <button
+                                onClick={() => validateCouponForCart(manualCouponCode)}
+                                disabled={!manualCouponCode.trim() || billingLoading}
+                                className="px-4 py-2 bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                Apply
+                            </button>
+                        </div>
+                        
+                        {/* Coupon Error Message */}
+                        {couponError && (
+                            <div className="p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                                <p className="text-red-600 dark:text-red-400 text-sm font-medium">{couponError}</p>
+                            </div>
+                        )}
+                        
+                        {/* Applied Coupon Display */}
+                        {appliedCoupon && (
+                            <div className="p-3 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                <span className="text-green-700 dark:text-green-400 font-medium">
+                                    {appliedCoupon.code} Applied
+                                </span>
+                                <p className="text-sm text-green-600 dark:text-green-300">
+                                    {appliedCoupon.type === '%' 
+                                    ? `${appliedCoupon.value}% off` 
+                                    : `₹${appliedCoupon.value} off`}
+                                </p>
+                                </div>
+                                <div className="text-right">
+                                <span className="text-green-700 dark:text-green-400 font-bold">
+                                    -₹{couponDiscount.toFixed(2)}
+                                </span>
+                                <button
+                                    onClick={() => {
+                                    setAppliedCoupon(null);
+                                    setCouponDiscount(0);
+                                    }}
+                                    className="ml-2 text-red-500 hover:text-red-700"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                                </div>
+                            </div>
+                            </div>
+                        )}
+                        </div>
+
+                        {/* Total After Discount */}
+                        <div className="border-t pt-4">
+                        <div className="flex justify-between items-center">
+                            <span className={`text-xl font-bold ${themeStyles.text}`}>Total</span>
+                            <span className={`text-xl font-bold ${themeStyles.accent}`}>
+                            ₹{(cartTotal - couponDiscount).toFixed(2)}
+                            </span>
+                        </div>
+                        </div>
+
+                        {/* Proceed to Payment */}
+                        <button
+                        onClick={() => {
+                            setBillingStep('payment');
+                            setTimeout(() => {
+                                const modalContent = document.querySelector('.billing-modal-content');
+                                if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                            }, 100);
+                        }}
+                        className="w-full mt-6 py-3 px-6 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+                        >
+                        Proceed to Payment
+                        </button>
+                    </div>
+                    </div>
+                )}
+
+                {/* Error Message */}
+                {billingError && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{billingError}</p>
+                    </div>
+                )}
+                    </div>
+                </div>
+            )}
+
+            {/* Step 3: Payment Options */}
+            {billingStep === 'payment' && (
+                <div className="h-[600px] overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+                    <div className="p-6 space-y-6">
+                
+                {/* Payment Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                    <h3 className={`text-2xl font-bold ${themeStyles.text} mb-2`}>Payment Options</h3>
+                    <p className={`${themeStyles.textSecondary}`}>Choose your payment method</p>
+                    </div>
+                    <button
+                    onClick={() => {
+                        setBillingStep('cart');
+                        setTimeout(() => {
+                            const modalContent = document.querySelector('.billing-modal-content');
+                            if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                        }, 100);
+                    }}
+                    className={`flex items-center space-x-2 px-4 py-2 ${themeStyles.cardBg} border ${themeStyles.border} rounded-lg hover:${themeStyles.hoverBg} transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+                    >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to Cart</span>
+                    </button>
+                </div>
+
+                {/* Scroll Indicator for Payment */}
+                <div className="text-center mb-4">
+                    <p className="text-sm text-violet-600 dark:text-violet-400 flex items-center justify-center space-x-2">
+                        <span>Scroll for more payment options</span>
+                        <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce"></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    
+                    {/* Left: Payment Methods */}
+                    <div>
+                    <h4 className={`text-lg font-semibold ${themeStyles.text} mb-4 flex items-center`}>
+                        <CreditCard className="h-5 w-5 mr-2" />
+                        Select Payment Method
+                    </h4>
+                    
+                    <div className="space-y-3">
+                        {[
+                        { id: 'Cash', label: 'Cash Payment', icon: IndianRupee, color: 'from-green-500 to-emerald-500' },
+                        { id: 'Card', label: 'Credit/Debit Card', icon: CreditCard, color: 'from-blue-500 to-indigo-500' },
+                        { id: 'UPI', label: 'UPI Payment', icon: Smartphone, color: 'from-purple-500 to-pink-500' }
+                        ].map((method, index) => (
+                        <label key={method.id} className="block cursor-pointer">
+                            <div 
+                            className={`p-4 border-2 rounded-lg transition-all duration-300 transform hover:scale-105 hover:shadow-lg ${
+                            selectedPaymentMethod === method.id
+                                ? `border-blue-500 ${themeStyles.cardBg} shadow-lg ring-2 ring-blue-200 dark:ring-blue-800`
+                                : `${themeStyles.border} ${themeStyles.cardBg} hover:${themeStyles.hoverBg} hover:border-blue-300 dark:hover:border-blue-600`
+                            }`}
+                            style={{
+                                animationDelay: `${index * 0.1}s`,
+                                animation: 'fadeInUp 0.5s ease-out forwards'
+                            }}
+                            >
+                            <div className="flex items-center space-x-3">
+                                <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${method.color} flex items-center justify-center text-white`}>
+                                <method.icon className="h-5 w-5" />
+                                </div>
+                                <div className="flex-1">
+                                <span className={`font-medium ${themeStyles.text}`}>{method.label}</span>
+                                <input
+                                    type="radio"
+                                    name="paymentMethod"
+                                    value={method.id}
+                                    checked={selectedPaymentMethod === method.id}
+                                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                                    className="ml-auto"
+                                />
+                                </div>
+                            </div>
+                            </div>
+                        </label>
+                        ))}
+                    </div>
+                    </div>
+
+                    {/* Right: Smart Coins & Summary */}
+                    <div>
+                    
+                    {/* Smart Coins Section */}
+                    <div className="mb-6">
+                        <h4 className={`text-lg font-semibold ${themeStyles.text} mb-4 flex items-center`}>
+                        <Coins className="h-5 w-5 mr-2" />
+                        Use Smart Coins
+                        </h4>
+                        
+                        <div className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-lg p-4`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className={`${themeStyles.text}`}>Available Balance</span>
+                            <span className={`font-bold ${themeStyles.accent}`}>{smartCoinsBalance} coins</span>
+                        </div>
+                        
+                        <div className="mb-3">
+                            <label className={`block text-sm font-medium ${themeStyles.text} mb-1`}>
+                            Use coins (1 coin = ₹1)
+                            </label>
+                            <input
+                            type="number"
+                            min="0"
+                            max={Math.min(smartCoinsBalance, cartTotal - couponDiscount)}
+                            value={smartCoinsToUse}
+                            onChange={(e) => handleSmartCoinsChange(parseInt(e.target.value) || 0)}
+                            className={`w-full p-2 border rounded-lg ${themeStyles.cardBg} ${themeStyles.border} ${themeStyles.text}`}
+                            placeholder="Enter coins to use"
+                            />
+                        </div>
+                        
+                        {smartCoinsToUse > 0 && (
+                            <div className="p-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded">
+                            <p className="text-blue-700 dark:text-blue-300 text-sm">
+                                Using {smartCoinsToUse} coins = ₹{smartCoinsToUse} discount
+                            </p>
+                            </div>
+                        )}
+                        </div>
+                    </div>
+
+                    {/* Payment Summary */}
+                    <div className={`${themeStyles.headerBg} rounded-lg border ${themeStyles.border} p-4`}>
+                        <h4 className={`text-lg font-semibold ${themeStyles.text} mb-4`}>Payment Summary</h4>
+                        
+                        <div className="space-y-2">
+                        <div className="flex justify-between">
+                            <span className={`${themeStyles.textSecondary}`}>Subtotal</span>
+                            <span className={`${themeStyles.text}`}>₹{cartTotal.toFixed(2)}</span>
+                        </div>
+                        
+                        {couponDiscount > 0 && (
+                            <div className="flex justify-between text-green-600">
+                            <span>Coupon Discount</span>
+                            <span>-₹{couponDiscount.toFixed(2)}</span>
+                            </div>
+                        )}
+                        
+                        {smartCoinsToUse > 0 && (
+                            <div className="flex justify-between text-blue-600">
+                            <span>Smart Coins Used</span>
+                            <span>-₹{smartCoinsToUse.toFixed(2)}</span>
+                            </div>
+                        )}
+                        
+                        <div className={`border-t pt-2 mt-2 flex justify-between items-center ${themeStyles.border}`}>
+                            <span className={`text-lg font-bold ${themeStyles.text}`}>Final Amount</span>
+                            <span className={`text-lg font-bold ${themeStyles.accent}`}>
+                            ₹{calculateFinalAmount().toFixed(2)}
+                            </span>
+                        </div>
+                        
+                        <div className="pt-3 mt-3 border-t">
+                            <div className="flex justify-between text-sm text-green-600">
+                            <span>Smart Coins to Earn</span>
+                            <span>+{Math.floor(calculateFinalAmount() * 0.01)} coins</span>
+                            </div>
+                        </div>
+                        </div>
+                        
+                        {/* Proceed to Review */}
+                        <button
+                        onClick={() => {
+                            setBillingStep('preview');
+                            setTimeout(() => {
+                                const modalContent = document.querySelector('.billing-modal-content');
+                                if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                            }, 100);
+                        }}
+                        disabled={!selectedPaymentMethod}
+                        className={`w-full mt-4 py-3 px-6 rounded-lg font-semibold transition-all duration-300 ${
+                            selectedPaymentMethod
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transform hover:scale-105'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                        >
+                        Review Order
+                        </button>
+                    </div>
+                    </div>
+                </div>
+
+                {/* Error Message */}
+                {billingError && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{billingError}</p>
+                    </div>
+                )}
+                    </div>
+                </div>
+            )}
+
+            {/* Step 4: Bill Preview */}
+            {billingStep === 'preview' && (
+                <div className="h-[600px] overflow-y-auto scroll-smooth scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+                    <div className="p-6 space-y-6">
+                
+                {/* Preview Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                    <h3 className={`text-2xl font-bold ${themeStyles.text} mb-2`}>Bill Preview</h3>
+                    <p className={`${themeStyles.textSecondary}`}>Review your order before payment</p>
+                    </div>
+                    <button
+                    onClick={() => {
+                        setBillingStep('payment');
+                        setTimeout(() => {
+                            const modalContent = document.querySelector('.billing-modal-content');
+                            if (modalContent) modalContent.scrollTo({ top: 0, behavior: 'smooth' });
+                        }, 100);
+                    }}
+                    className={`flex items-center space-x-2 px-4 py-2 ${themeStyles.cardBg} border ${themeStyles.border} rounded-lg hover:${themeStyles.hoverBg} transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
+                    >
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back to Payment</span>
+                    </button>
+                </div>
+
+                {/* Scroll Indicator for Bill Preview */}
+                <div className="text-center mb-4">
+                    <p className="text-sm text-violet-600 dark:text-violet-400 flex items-center justify-center space-x-2">
+                        <span>Scroll to review complete bill</span>
+                        <div className="flex space-x-1">
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce"></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                            <div className="w-1 h-1 bg-violet-600 dark:bg-violet-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                        </div>
+                    </p>
+                </div>
+
+                {/* Bill Preview Content */}
+                <div className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-lg p-6`}>
+                    
+                    {/* Store Header */}
+                    <div className="text-center mb-6 border-b pb-4">
+                    <h2 className={`text-2xl font-bold ${themeStyles.accent}`}>StoreZen Retail</h2>
+                    <p className={`${themeStyles.textSecondary}`}>Smart Shopping Experience</p>
+                    <p className={`text-sm ${themeStyles.textSecondary}`}>Date: {new Date().toLocaleDateString()}</p>
+                    </div>
+
+                    {/* Customer Info */}
+                    <div className="mb-6">
+                    <h4 className={`font-semibold ${themeStyles.text} mb-2`}>Customer Information</h4>
+                    <p className={`${themeStyles.textSecondary}`}>Name: {customerName}</p>
+                    </div>
+
+                    {/* Items List */}
+                    <div className="mb-6">
+                    <h4 className={`font-semibold ${themeStyles.text} mb-3`}>Items</h4>
+                    <div className="space-y-2">
+                        {cart.map((item) => (
+                        <div key={item.id} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                            <div>
+                            <span className={`${themeStyles.text}`}>{item.name}</span>
+                            <span className={`text-sm ${themeStyles.textSecondary} ml-2`}>x{item.quantity}</span>
+                            </div>
+                            <span className={`${themeStyles.text}`}>₹{(item.price * item.quantity).toFixed(2)}</span>
+                        </div>
+                        ))}
+                    </div>
+                    </div>
+
+                    {/* Bill Calculation */}
+                    <div className="space-y-2">
+                    <div className="flex justify-between">
+                        <span className={`${themeStyles.text}`}>Subtotal</span>
+                        <span className={`${themeStyles.text}`}>₹{cartTotal.toFixed(2)}</span>
+                    </div>
+                    
+                    {couponDiscount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                        <span>Coupon Discount ({appliedCoupon?.code})</span>
+                        <span>-₹{couponDiscount.toFixed(2)}</span>
+                        </div>
+                    )}
+                    
+                    {smartCoinsToUse > 0 && (
+                        <div className="flex justify-between text-blue-600">
+                        <span>Smart Coins Used</span>
+                        <span>-₹{smartCoinsToUse.toFixed(2)}</span>
+                        </div>
+                    )}
+                    
+                    <div className={`border-t pt-2 mt-4 flex justify-between items-center ${themeStyles.border}`}>
+                        <span className={`text-xl font-bold ${themeStyles.text}`}>Total Amount</span>
+                        <span className={`text-xl font-bold ${themeStyles.accent}`}>₹{calculateFinalAmount().toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t space-y-1">
+                        <div className="flex justify-between text-sm">
+                        <span className={`${themeStyles.textSecondary}`}>Payment Method</span>
+                        <span className={`${themeStyles.text}`}>{selectedPaymentMethod}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-green-600">
+                        <span>Smart Coins to Earn</span>
+                        <span>+{Math.floor(calculateFinalAmount() * 0.01)} coins</span>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+
+                {/* Confirm Payment Button */}
+                <button
+                    onClick={processBilling}
+                    disabled={billingLoading}
+                    className={`w-full py-4 px-6 rounded-lg font-bold text-lg transition-all duration-200 ${
+                    billingLoading
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transform hover:scale-105'
+                    }`}
+                >
+                    {billingLoading ? (
+                    <div className="flex items-center justify-center space-x-2">
+                        <Loader2 className="h-6 w-6 animate-spin" />
+                        <span>Processing Payment...</span>
+                    </div>
+                    ) : (
+                    <>Pay ₹{calculateFinalAmount().toFixed(2)}</>
+                    )}
+                </button>
+
+                {/* Error Message */}
+                {billingError && (
+                    <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                    <p className="text-red-600 dark:text-red-400 text-sm">{billingError}</p>
+                    </div>
+                )}
+                    </div>
+                </div>
+            )}
+
+            {/* Step 5: Payment Success */}
+            {billingStep === 'success' && generatedBill && (
+                <div className="p-6 space-y-6">
+                
+                {/* Success Animation */}
+                {showPaymentSuccess && (
+                    <div className="text-center py-12">
+                    <div className="relative mx-auto w-20 h-20 mb-6">
+                        <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
+                        <div className="relative bg-green-500 rounded-full w-20 h-20 flex items-center justify-center">
+                        <CheckCircle className="h-10 w-10 text-white animate-bounce" />
+                        </div>
+                    </div>
+                    <h3 className={`text-3xl font-bold text-green-600 mb-2`}>Payment Successful!</h3>
+                    <p className={`text-lg ${themeStyles.textSecondary}`}>Your order has been processed</p>
+                    </div>
+                )}
+
+                {/* Bill Details */}
+                <div className={`${themeStyles.cardBg} border ${themeStyles.border} rounded-lg p-6`}>
+                    <div className="text-center mb-6">
+                    <h4 className={`text-xl font-bold ${themeStyles.accent}`}>Digital Receipt</h4>
+                    <p className={`text-sm ${themeStyles.textSecondary}`}>Bill ID: {generatedBill.billId}</p>
+                    <p className={`text-sm ${themeStyles.textSecondary}`}>
+                        Date: {new Date(generatedBill.billDate).toLocaleDateString()} at {new Date(generatedBill.billDate).toLocaleTimeString()}
+                    </p>
+                    </div>
+
+                    <div className="space-y-4">
+                    <div className="flex justify-between">
+                        <span className={`${themeStyles.text}`}>Items Purchased</span>
+                        <span className={`${themeStyles.text}`}>{generatedBill.items.length} items</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className={`${themeStyles.text}`}>Total Amount</span>
+                        <span className={`text-lg font-bold ${themeStyles.accent}`}>₹{generatedBill.billing.finalAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className={`${themeStyles.text}`}>Payment Method</span>
+                        <span className={`${themeStyles.text}`}>{generatedBill.paymentMethod}</span>
+                    </div>
+                    {generatedBill.billing.smartCoinsEarned > 0 && (
+                        <div className="flex justify-between text-green-600">
+                        <span>Smart Coins Earned</span>
+                        <span>+{generatedBill.billing.smartCoinsEarned} coins</span>
+                        </div>
+                    )}
+                    <div className="flex justify-between text-blue-600">
+                        <span>New Smart Coins Balance</span>
+                        <span>{smartCoinsBalance} coins</span>
+                    </div>
+                    </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex space-x-4">
+                    <button
+                    onClick={resetBillingModal}
+                    className="flex-1 py-3 px-6 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                    >
+                    New Order
+                    </button>
+                    <button
+                    onClick={() => setShowSmartBillingModal(false)}
+                    className="flex-1 py-3 px-6 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                    >
+                    Close
+                    </button>
+                </div>
+                </div>
+            )}
+
+            </div>
+        </div>
+        </div>
+        </>
     )}
     
     </div>
