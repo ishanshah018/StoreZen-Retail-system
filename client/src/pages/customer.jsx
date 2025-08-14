@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 // =============================================================================
@@ -23,8 +23,7 @@ GradientBadge
 import {
     User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
     Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle,
-    CreditCard,Smartphone,Tag,Check,IndianRupee, Calendar, TrendingUp, TrendingDown, 
-    DollarSign, PieChart, ShoppingBag
+    CreditCard,Smartphone,Tag,Check,IndianRupee
 } from "lucide-react";
 
 // Chart.js components
@@ -38,9 +37,8 @@ import {
     Tooltip,
     Legend,
     ArcElement,
-    BarElement,
 } from 'chart.js';
-import { Line, Doughnut, Bar } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 
 // Utilities and API
 import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
@@ -57,8 +55,7 @@ ChartJS.register(
     Title,
     Tooltip,
     Legend,
-    ArcElement,
-    BarElement
+    ArcElement
 );
 
 // =============================================================================
@@ -156,6 +153,9 @@ const { currentTheme } = useTheme();
 
 // Customer data
 const [customerName, setCustomerName] = useState("Guest");
+
+// Ref to track if welcome message has been spoken
+const hasSpokenWelcome = useRef(false);
 
 // Product management
 const [products, setProducts] = useState([]);             // All products
@@ -263,6 +263,21 @@ const [analyticsError, setAnalyticsError] = useState(''); // Analytics error mes
 useEffect(() => {
     const savedCustomerName = localStorage.getItem('customerName') || "Guest";
     setCustomerName(savedCustomerName);
+    
+    // Greet the user by name when they login/enter the page (only once)
+    if (savedCustomerName && savedCustomerName !== "Guest" && !hasSpokenWelcome.current) {
+        hasSpokenWelcome.current = true;
+        // Small delay to ensure page is loaded
+        setTimeout(() => {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(`Hello ${savedCustomerName}`);
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }, 500);
+    }
 }, []);
 
 // =============================================================================
@@ -1365,13 +1380,24 @@ const handleSearch = (query) => {
 
 /** Enhanced logout function */
 const handleLogout = () => {
+    // Speak goodbye message with faster rate
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance("See you next time");
+        utterance.rate = 1.3; // Fast speech rate
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        window.speechSynthesis.speak(utterance);
+    }
+
     // Clear all authentication data
     localStorage.removeItem('token');
     localStorage.removeItem('loggedInUser');
     localStorage.removeItem('customerName');
 
-    // Navigate to home page
-    navigate('/', { replace: true });
+    // Navigate to home page with a small delay to allow speech to start
+    setTimeout(() => {
+        navigate('/', { replace: true });
+    }, 100);
 };
 
 // =============================================================================
@@ -1421,6 +1447,9 @@ const fetchTotalSpentData = async () => {
                     startDate = new Date(totalSpentCustomStart + 'T00:00:00').toISOString();
                     endDate = new Date(totalSpentCustomEnd + 'T23:59:59').toISOString();
                 }
+                break;
+            default:
+                // Default to 'tillnow' - no date filtering
                 break;
         }
 
@@ -1532,8 +1561,6 @@ const fetchAnalyticsData = async () => {
 /** Show analytics modal and fetch data */
 const showAnalyticsView = () => {
     const userId = localStorage.getItem('userId');
-    const userName = localStorage.getItem('customerName');
-    const loggedInUser = localStorage.getItem('loggedInUser');
     
     if (!userId) {
         alert('Please login first to view analytics!');
@@ -1542,102 +1569,6 @@ const showAnalyticsView = () => {
     
     setShowAnalyticsModal(true);
     fetchAnalyticsData();
-};
-
-/** Get chart data for monthly spending */
-const getMonthlySpendingChartData = () => {
-    if (!analyticsData?.monthlySpending) return null;
-
-    const isDark = currentTheme === 'dark';
-
-    return {
-        labels: analyticsData.monthlySpending.map(item => item.month),
-        datasets: [
-            {
-                label: 'Monthly Spending (₹)',
-                data: analyticsData.monthlySpending.map(item => item.amount),
-                borderColor: isDark ? '#8B5CF6' : '#7C3AED',
-                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(124, 58, 237, 0.1)',
-                borderWidth: 3,
-                pointBackgroundColor: isDark ? '#A78BFA' : '#8B5CF6',
-                pointBorderColor: '#FFFFFF',
-                pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8,
-                fill: true,
-                tension: 0.4,
-            },
-        ],
-    };
-};
-
-/** Get chart data for category-wise spending */
-const getCategoryChartData = () => {
-    if (!analyticsData?.categoryWiseSpending) return null;
-
-    const colors = [
-        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
-        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
-    ];
-    
-    return {
-        labels: analyticsData.categoryWiseSpending.map(item => item.category),
-        datasets: [
-            {
-                data: analyticsData.categoryWiseSpending.map(item => item.amount),
-                backgroundColor: colors.slice(0, analyticsData.categoryWiseSpending.length),
-                borderColor: '#FFFFFF',
-                borderWidth: 2,
-                hoverBorderWidth: 3,
-            },
-        ],
-    };
-};
-
-/** Get chart data for top products */
-const getTopProductsChartData = () => {
-    if (!analyticsData?.topProducts) return null;
-
-    const isDark = currentTheme === 'dark';
-
-    return {
-        labels: analyticsData.topProducts.map(item => item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name),
-        datasets: [
-            {
-                label: 'Amount Spent (₹)',
-                data: analyticsData.topProducts.map(item => item.totalAmount),
-                backgroundColor: isDark ? 'rgba(34, 197, 94, 0.8)' : 'rgba(16, 185, 129, 0.8)',
-                borderColor: isDark ? '#22C55E' : '#10B981',
-                borderWidth: 1,
-                borderRadius: 8,
-                borderSkipped: false,
-            },
-        ],
-    };
-};
-
-/** Format currency */
-const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-        style: 'currency',
-        currency: 'INR',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-    }).format(amount);
-};
-
-/** Get percentage change color */
-const getPercentageChangeColor = (percentage) => {
-    if (percentage > 0) return 'text-red-600';
-    if (percentage < 0) return 'text-green-600';
-    return 'text-gray-600';
-};
-
-/** Get percentage change icon */
-const getPercentageChangeIcon = (percentage) => {
-    if (percentage > 0) return <TrendingUp className="h-4 w-4" />;
-    if (percentage < 0) return <TrendingDown className="h-4 w-4" />;
-    return <DollarSign className="h-4 w-4" />;
 };
 
 // =============================================================================

@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { X, Tag, Plus, Trash2, Calendar, Percent, IndianRupee, AlertCircle, CheckCircle, Sparkles, Gift } from 'lucide-react';
 
+// =============================================================================
+// COUPON MANAGEMENT COMPONENT
+// =============================================================================
+
+/**
+ * CouponManagement - Comprehensive coupon creation and management interface
+ * Features: Create, view, edit, delete coupons with real-time validation
+ * Supports both percentage and fixed amount discount types
+ * 
+ * @param {boolean} isOpen - Controls modal visibility
+ * @param {function} onClose - Callback when modal is closed
+ * @param {object} theme - Theme configuration object
+ * @param {string} mode - Operation mode: 'add' | 'view' | 'edit'
+ */
 const CouponManagement = ({ isOpen, onClose, theme, mode = 'add' }) => {
+    // =============================================================================
+    // STATE MANAGEMENT
+    // =============================================================================
+    
     const [activeTab, setActiveTab] = useState(mode === 'view' ? 'view' : 'add');
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -12,7 +30,7 @@ const CouponManagement = ({ isOpen, onClose, theme, mode = 'add' }) => {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [couponToDelete, setCouponToDelete] = useState(null);
     
-    // Form data
+    // Form data state
     const [formData, setFormData] = useState({
         coupon_code: '',
         type: '%',

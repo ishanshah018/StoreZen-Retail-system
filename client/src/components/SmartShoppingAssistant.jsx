@@ -1,9 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
     ShoppingCart, X, Star, Calendar, Package, TrendingUp,
     ChevronRight, Sun, CloudRain, Snowflake,
     PartyPopper, Cake, Plane, Loader2, ArrowLeft, Plus, Minus
 } from 'lucide-react';
+
+// =============================================================================
+// SMART SHOPPING ASSISTANT COMPONENT
+// =============================================================================
+
+/**
+ * SmartShoppingAssistant - AI-powered personalized shopping recommendation system
+ * Features:
+ * - Voice interaction with text-to-speech
+ * - Last purchase-based recommendations
+ * - Event-based shopping suggestions (festivals, travel, seasons)
+ * - Smart cart management with billing integration
+ * 
+ * @param {boolean} isOpen - Controls modal visibility
+ * @param {function} onClose - Callback when modal is closed
+ * @param {string} currentTheme - Current theme mode ('light'|'dark')
+ * @param {object} themeStyles - Theme styling configuration
+ * @param {function} onOpenSmartBilling - Callback to open billing at specific step
+ * @param {function} onAddToCart - Callback to add items to main cart
+ * @param {array} cartItems - Current cart items for reference
+ */
 
 const SmartShoppingAssistant = ({ 
     isOpen, 
@@ -14,7 +35,10 @@ const SmartShoppingAssistant = ({
     onAddToCart,
     cartItems = []
 }) => {
-    // State Management
+    // =============================================================================
+    // STATE MANAGEMENT
+    // =============================================================================
+    
     const [currentStep, setCurrentStep] = useState('main'); // main, lastPurchases, eventBased
     const [loading, setLoading] = useState(false);
     const [lastPurchases, setLastPurchases] = useState([]);
@@ -22,6 +46,36 @@ const SmartShoppingAssistant = ({
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [availableProducts, setAvailableProducts] = useState([]);
     const [localCart, setLocalCart] = useState([]); // Local cart for assistant
+    
+    // Ref to track if welcome message has been spoken
+    const hasSpokenWelcome = useRef(false);
+
+    // =============================================================================
+    // TEXT-TO-SPEECH FUNCTIONS
+    // =============================================================================
+
+    // Text-to-speech welcome message
+    const speakWelcomeMessage = () => {
+        if ('speechSynthesis' in window && !hasSpokenWelcome.current) {
+            hasSpokenWelcome.current = true;
+            const utterance = new SpeechSynthesisUtterance("WELCOME TO SMART SHOPPING ASSISTANT ");
+            utterance.rate = 0.9;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+    };
+
+    // Text-to-speech for event planning
+    const speakEventPlanningMessage = () => {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance("What are you planning for?");
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+    };
 
     // Event Categories
     const eventCategories = {
@@ -149,53 +203,6 @@ const SmartShoppingAssistant = ({
         }
     };
 
-    // Generate suggestions based on last purchases
-    const generateLastPurchaseSuggestions = () => {
-        console.log('Last purchases:', lastPurchases);
-        console.log('Available products:', availableProducts);
-        
-        if (lastPurchases.length === 0 || availableProducts.length === 0) return [];
-
-        const suggestions = [];
-        
-        // 1. Same products (replenishment) - use productName matching
-        lastPurchases.slice(0, 5).forEach(purchase => {
-            const product = availableProducts.find(p => 
-                p.name.toLowerCase() === purchase.productName.toLowerCase() || 
-                p.id === purchase.productId
-            );
-            if (product && product.in_stock) {
-                suggestions.push({
-                    ...product,
-                    reason: `You bought this ${purchase.totalQuantity} times`,
-                    type: 'replenishment',
-                    priority: 1
-                });
-            }
-        });
-
-        // 2. Same category products
-        const purchasedCategories = [...new Set(lastPurchases.map(p => p.category))];
-        purchasedCategories.forEach(category => {
-            const categoryProducts = availableProducts
-                .filter(p => p.category.toLowerCase() === category.toLowerCase() && p.in_stock)
-                .filter(p => !suggestions.find(s => s.id === p.id))
-                .slice(0, 3);
-                
-            categoryProducts.forEach(product => {
-                suggestions.push({
-                    ...product,
-                    reason: `Popular in ${category} category`,
-                    type: 'category',
-                    priority: 2
-                });
-            });
-        });
-
-        console.log('Generated suggestions:', suggestions);
-        return suggestions.slice(0, 12);
-    };
-
     // Generate event-based suggestions
     const generateEventBasedSuggestions = (eventType) => {
         if (!eventCategories[eventType] || availableProducts.length === 0) return [];
@@ -236,6 +243,11 @@ const SmartShoppingAssistant = ({
         if (isOpen) {
             fetchAvailableProducts();
             fetchLastPurchases();
+            // Speak welcome message when component opens
+            speakWelcomeMessage();
+        } else {
+            // Reset the welcome message flag when component closes
+            hasSpokenWelcome.current = false;
         }
     }, [isOpen]);
 
@@ -460,7 +472,13 @@ const SmartShoppingAssistant = ({
 
                                 {/* Event-Based Shopping Card */}
                                 <div
-                                    onClick={() => setCurrentStep('eventSelection')}
+                                    onClick={() => {
+                                        setCurrentStep('eventSelection');
+                                        // Speak the event planning message after a short delay
+                                        setTimeout(() => {
+                                            speakEventPlanningMessage();
+                                        }, 500);
+                                    }}
                                     className={`group cursor-pointer p-6 rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-500 transition-all duration-300 ${themeStyles.cardBg} hover:shadow-lg hover:shadow-purple-500/25 transform hover:scale-[1.02]`}
                                 >
                                     <div className="text-center space-y-4">

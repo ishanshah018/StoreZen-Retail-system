@@ -1,43 +1,45 @@
-    import React, { useState, useEffect } from "react";
-    import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
-    // UI Components
-    import { Button } from "../components/ui/button";
-    import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
+// UI Components
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
-    // Theme Components
-    import { useTheme, getThemeStyles } from "../components/theme";
-    import {
+// Theme Components
+import { useTheme, getThemeStyles } from "../components/theme";
+import {
     GradientButton,
     GradientBadge,
     ActionCard,
     GlassmorphismModal,
     ThemeCollections
-    } from "../components/theme";
+} from "../components/theme";
 
-    // Icons
-    import {
+// Icons
+import {
     Package, BarChart, Megaphone, Users, Percent, MessageCircle,
     Heart, Plus, Minus, Send, TrendingUp, AlertTriangle, Settings,
     Calendar, Clock, Store, ArrowLeft, CheckCircle, XCircle,
-    } from "lucide-react";
+} from "lucide-react";
 
 // Utilities and API
 import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
-import CouponManagement from '../components/CouponManagement';    // =============================================================================
-    // UTILITY CLASSES - TRIE DATA STRUCTURE FOR SEARCH
-    // =============================================================================
+import CouponManagement from '../components/CouponManagement';
 
-    /** Trie node for efficient product search implementation */
-    class TrieNode {
+// =============================================================================
+// UTILITY CLASSES - TRIE DATA STRUCTURE FOR SEARCH
+// =============================================================================
+
+/** Trie node for efficient product search implementation */
+class TrieNode {
     constructor() {
         this.children = {};    // Character mapping to child nodes
         this.products = [];    // Products that match this prefix
     }
-    }
+}
 
-    /** Trie data structure for O(m) search complexity */
-    class Trie {
+/** Trie data structure for O(m) search complexity */
+class Trie {
     constructor() {
         this.root = new TrieNode();
     }
