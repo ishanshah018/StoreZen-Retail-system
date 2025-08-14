@@ -23,11 +23,42 @@ GradientBadge
 import {
     User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
     Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle,
-    CreditCard,Smartphone,Tag,Check,IndianRupee
+    CreditCard,Smartphone,Tag,Check,IndianRupee, Calendar, TrendingUp, TrendingDown, 
+    DollarSign, PieChart, ShoppingBag
 } from "lucide-react";
 
+// Chart.js components
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    BarElement,
+} from 'chart.js';
+import { Line, Doughnut, Bar } from 'react-chartjs-2';
+
 // Utilities and API
-import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';// =============================================================================
+import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
+
+// Register Chart.js components
+ChartJS.register(
+    CategoryScale,
+    LinearScale,
+    PointElement,
+    LineElement,
+    Title,
+    Tooltip,
+    Legend,
+    ArcElement,
+    BarElement
+);
+
+// =============================================================================
 // UTILITY CLASSES - TRIE DATA STRUCTURE FOR PRODUCT SEARCH
 // =============================================================================
 
@@ -207,7 +238,18 @@ const [billingError, setBillingError] = useState(''); // Billing error message
 const [generatedBill, setGeneratedBill] = useState(null); // Generated bill data
 const [showPaymentSuccess, setShowPaymentSuccess] = useState(false); // Payment success animation
 
-// =============================================================================
+// Analytics modal states
+const [showAnalyticsModal, setShowAnalyticsModal] = useState(false); // Analytics modal toggle
+const [analyticsData, setAnalyticsData] = useState(null); // Analytics data
+const [analyticsLoading, setAnalyticsLoading] = useState(false); // Analytics loading state
+const [analyticsError, setAnalyticsError] = useState(''); // Analytics error message
+
+    // Time range filter states
+    const [totalSpentTimeRange, setTotalSpentTimeRange] = useState('tillnow');
+    const [totalSpentCustomStart, setTotalSpentCustomStart] = useState('');
+    const [totalSpentCustomEnd, setTotalSpentCustomEnd] = useState('');
+    
+    const [graphYear, setGraphYear] = useState(new Date().getFullYear());// =============================================================================
 // LIFECYCLE EFFECTS
 // =============================================================================
 
@@ -1315,6 +1357,273 @@ const handleLogout = () => {
     // Navigate to home page
     navigate('/', { replace: true });
 };
+
+// =============================================================================
+// ANALYTICS FUNCTIONS
+// =============================================================================
+
+/** Fetch analytics data for the logged-in customer */
+// Fetch Total Spent data with time filter
+const fetchTotalSpentData = async () => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    try {
+        let startDate = null;
+        let endDate = null;
+        const now = new Date();
+        
+        switch (totalSpentTimeRange) {
+            case 'tillnow':
+                break;
+            case 'lastmonth':
+                const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+                startDate = lastMonth.toISOString();
+                endDate = lastMonthEnd.toISOString();
+                break;
+            case 'thismonth':
+                const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                const thisMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                startDate = thisMonth.toISOString();
+                endDate = thisMonthEnd.toISOString();
+                break;
+            case 'thisyear':
+                const thisYear = new Date(now.getFullYear(), 0, 1);
+                const thisYearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+                startDate = thisYear.toISOString();
+                endDate = thisYearEnd.toISOString();
+                break;
+            case 'lastyear':
+                const lastYear = new Date(now.getFullYear() - 1, 0, 1);
+                const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59);
+                startDate = lastYear.toISOString();
+                endDate = lastYearEnd.toISOString();
+                break;
+            case 'custom':
+                if (totalSpentCustomStart && totalSpentCustomEnd) {
+                    startDate = new Date(totalSpentCustomStart + 'T00:00:00').toISOString();
+                    endDate = new Date(totalSpentCustomEnd + 'T23:59:59').toISOString();
+                }
+                break;
+        }
+
+        let apiUrl = `http://localhost:8080/api/analytics/${userId}`;
+        if (startDate && endDate) {
+            apiUrl += `/custom?startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update only the spending totals in analyticsData
+                setAnalyticsData(prev => ({
+                    ...prev,
+                    totalSpent: result.data.totalSpent,
+                    totalBills: result.data.totalBills,
+                    totalSavings: result.data.totalSavings
+                }));
+            }
+        }
+    } catch (error) {
+        console.error('Total spent fetch error:', error);
+    }
+};
+
+// Fetch Graph data with year filter  
+const fetchGraphData = async () => {
+    const userId = localStorage.getItem('userId');
+    if (!userId) return;
+
+    try {
+        // Always use year-based filtering for graphs
+        const yearStart = new Date(graphYear, 0, 1);
+        const yearEnd = new Date(graphYear, 11, 31, 23, 59, 59);
+        const startDate = yearStart.toISOString();
+        const endDate = yearEnd.toISOString();
+
+        const apiUrl = `http://localhost:8080/api/analytics/${userId}/custom?startDate=${startDate}&endDate=${endDate}`;
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                // Update only the graph data in analyticsData
+                setAnalyticsData(prev => ({
+                    ...prev,
+                    monthlySpending: result.data.monthlySpending,
+                    categoryWiseSpending: result.data.categoryWiseSpending,
+                    topProducts: result.data.topProducts,
+                    monthlyComparison: result.data.monthlyComparison
+                }));
+            }
+        }
+    } catch (error) {
+        console.error('Graph data fetch error:', error);
+    }
+};
+
+const fetchAnalyticsData = async () => {
+    const userId = localStorage.getItem('userId');
+    
+    if (!userId) {
+        setAnalyticsError('User authentication required');
+        return;
+    }
+
+    try {
+        setAnalyticsLoading(true);
+        setAnalyticsError('');
+
+        // Basic API call to get all data initially
+        const apiUrl = `http://localhost:8080/api/analytics/${userId}`;
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                setAnalyticsData(result.data);
+            } else {
+                setAnalyticsError(result.message || 'Failed to fetch analytics data');
+            }
+        } else {
+            const result = await response.json();
+            setAnalyticsError(result.message || 'Failed to fetch analytics data');
+        }
+    } catch (error) {
+        setAnalyticsError('Failed to connect to server. Please try again.');
+        console.error('Analytics fetch error:', error);
+    } finally {
+        setAnalyticsLoading(false);
+    }
+};
+
+/** Show analytics modal and fetch data */
+const showAnalyticsView = () => {
+    const userId = localStorage.getItem('userId');
+    const userName = localStorage.getItem('customerName');
+    const loggedInUser = localStorage.getItem('loggedInUser');
+    
+    if (!userId) {
+        alert('Please login first to view analytics!');
+        return;
+    }
+    
+    setShowAnalyticsModal(true);
+    fetchAnalyticsData();
+};
+
+/** Get chart data for monthly spending */
+const getMonthlySpendingChartData = () => {
+    if (!analyticsData?.monthlySpending) return null;
+
+    const isDark = currentTheme === 'dark';
+
+    return {
+        labels: analyticsData.monthlySpending.map(item => item.month),
+        datasets: [
+            {
+                label: 'Monthly Spending (₹)',
+                data: analyticsData.monthlySpending.map(item => item.amount),
+                borderColor: isDark ? '#8B5CF6' : '#7C3AED',
+                backgroundColor: isDark ? 'rgba(139, 92, 246, 0.1)' : 'rgba(124, 58, 237, 0.1)',
+                borderWidth: 3,
+                pointBackgroundColor: isDark ? '#A78BFA' : '#8B5CF6',
+                pointBorderColor: '#FFFFFF',
+                pointBorderWidth: 2,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                fill: true,
+                tension: 0.4,
+            },
+        ],
+    };
+};
+
+/** Get chart data for category-wise spending */
+const getCategoryChartData = () => {
+    if (!analyticsData?.categoryWiseSpending) return null;
+
+    const colors = [
+        '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', 
+        '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF'
+    ];
+    
+    return {
+        labels: analyticsData.categoryWiseSpending.map(item => item.category),
+        datasets: [
+            {
+                data: analyticsData.categoryWiseSpending.map(item => item.amount),
+                backgroundColor: colors.slice(0, analyticsData.categoryWiseSpending.length),
+                borderColor: '#FFFFFF',
+                borderWidth: 2,
+                hoverBorderWidth: 3,
+            },
+        ],
+    };
+};
+
+/** Get chart data for top products */
+const getTopProductsChartData = () => {
+    if (!analyticsData?.topProducts) return null;
+
+    const isDark = currentTheme === 'dark';
+
+    return {
+        labels: analyticsData.topProducts.map(item => item.name.length > 20 ? item.name.substring(0, 20) + '...' : item.name),
+        datasets: [
+            {
+                label: 'Amount Spent (₹)',
+                data: analyticsData.topProducts.map(item => item.totalAmount),
+                backgroundColor: isDark ? 'rgba(34, 197, 94, 0.8)' : 'rgba(16, 185, 129, 0.8)',
+                borderColor: isDark ? '#22C55E' : '#10B981',
+                borderWidth: 1,
+                borderRadius: 8,
+                borderSkipped: false,
+            },
+        ],
+    };
+};
+
+/** Format currency */
+const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+        style: 'currency',
+        currency: 'INR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(amount);
+};
+
+/** Get percentage change color */
+const getPercentageChangeColor = (percentage) => {
+    if (percentage > 0) return 'text-red-600';
+    if (percentage < 0) return 'text-green-600';
+    return 'text-gray-600';
+};
+
+/** Get percentage change icon */
+const getPercentageChangeIcon = (percentage) => {
+    if (percentage > 0) return <TrendingUp className="h-4 w-4" />;
+    if (percentage < 0) return <TrendingDown className="h-4 w-4" />;
+    return <DollarSign className="h-4 w-4" />;
+};
+
 // =============================================================================
 // FEATURE DEFINITIONS
 // =============================================================================
@@ -1519,6 +1828,625 @@ return (
         </div>
         </div>
     </header>
+
+    {/* COMPLETE ANALYTICS DASHBOARD MODAL */}
+    {showAnalyticsModal && (
+        <div 
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                zIndex: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '20px'
+            }}
+        >
+            <div 
+                style={{
+                    backgroundColor: currentTheme === 'dark' ? '#1f2937' : '#ffffff',
+                    borderRadius: '20px',
+                    boxShadow: '0 25px 50px rgba(0, 0, 0, 0.25)',
+                    width: '95%',
+                    maxWidth: '1200px',
+                    maxHeight: '90vh',
+                    overflow: 'auto',
+                    color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                }}
+            >
+                {/* Header */}
+                <div style={{
+                    padding: '30px 30px 20px',
+                    borderBottom: `2px solid ${currentTheme === 'dark' ? '#374151' : '#e5e7eb'}`,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    <div>
+                        <h1 style={{
+                            fontSize: '28px',
+                            fontWeight: 'bold',
+                            margin: '0 0 5px',
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent'
+                        }}>
+                            📊 Your Spending Analytics
+                        </h1>
+                        <p style={{
+                            margin: 0,
+                            fontSize: '16px',
+                            opacity: 0.8
+                        }}>
+                            Visualize Your Spending Trends & Insights
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => setShowAnalyticsModal(false)}
+                        style={{
+                            backgroundColor: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '50%',
+                            width: '40px',
+                            height: '40px',
+                            cursor: 'pointer',
+                            fontSize: '20px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ×
+                    </button>
+                </div>
+
+                {/* Analytics Content */}
+                <div style={{ padding: '30px' }}>
+                    {analyticsLoading ? (
+                        <div style={{ textAlign: 'center', padding: '50px' }}>
+                            <div style={{
+                                width: '50px',
+                                height: '50px',
+                                border: '4px solid #f3f4f6',
+                                borderTop: '4px solid #3b82f6',
+                                borderRadius: '50%',
+                                animation: 'spin 1s linear infinite',
+                                margin: '0 auto 20px'
+                            }}></div>
+                            <p style={{ fontSize: '18px' }}>Loading your analytics...</p>
+                        </div>
+                    ) : analyticsData ? (
+                        <div>
+                            {/* Summary Cards with Total Spent Filter */}
+                            <div style={{ marginBottom: '30px' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '20px'
+                                }}>
+                                    <h3 style={{
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        margin: 0,
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        💰 Spending Summary
+                                    </h3>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <select
+                                            value={totalSpentTimeRange}
+                                            onChange={(e) => setTotalSpentTimeRange(e.target.value)}
+                                            style={{
+                                                padding: '5px 10px',
+                                                borderRadius: '5px',
+                                                border: `1px solid ${currentTheme === 'dark' ? '#4b5563' : '#d1d5db'}`,
+                                                backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                                color: currentTheme === 'dark' ? '#ffffff' : '#000000',
+                                                fontSize: '14px'
+                                            }}
+                                        >
+                                            <option value="tillnow">Till Now</option>
+                                            <option value="lastmonth">Last Month</option>
+                                            <option value="thismonth">This Month</option>
+                                            <option value="thisyear">This Year</option>
+                                            <option value="lastyear">Last Year</option>
+                                            <option value="custom">Custom Date</option>
+                                        </select>
+                                        
+                                        {totalSpentTimeRange === 'custom' && (
+                                            <>
+                                                <input
+                                                    type="date"
+                                                    value={totalSpentCustomStart}
+                                                    onChange={(e) => setTotalSpentCustomStart(e.target.value)}
+                                                    style={{
+                                                        padding: '5px',
+                                                        borderRadius: '5px',
+                                                        border: `1px solid ${currentTheme === 'dark' ? '#4b5563' : '#d1d5db'}`,
+                                                        backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                                        color: currentTheme === 'dark' ? '#ffffff' : '#000000',
+                                                        fontSize: '12px'
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '12px' }}>to</span>
+                                                <input
+                                                    type="date"
+                                                    value={totalSpentCustomEnd}
+                                                    onChange={(e) => setTotalSpentCustomEnd(e.target.value)}
+                                                    style={{
+                                                        padding: '5px',
+                                                        borderRadius: '5px',
+                                                        border: `1px solid ${currentTheme === 'dark' ? '#4b5563' : '#d1d5db'}`,
+                                                        backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                                        color: currentTheme === 'dark' ? '#ffffff' : '#000000',
+                                                        fontSize: '12px'
+                                                    }}
+                                                />
+                                            </>
+                                        )}
+                                        
+                                        <button
+                                            onClick={fetchTotalSpentData}
+                                            style={{
+                                                backgroundColor: '#10b981',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '5px',
+                                                padding: '5px 15px',
+                                                fontSize: '14px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Update
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                                gap: '20px'
+                            }}>
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#f8fafc',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    textAlign: 'center',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`
+                                }}>
+                                    <h3 style={{ margin: '0 0 10px', fontSize: '16px', opacity: 0.8 }}>Total Spent</h3>
+                                    <p style={{ 
+                                        margin: 0, 
+                                        fontSize: '28px', 
+                                        fontWeight: 'bold',
+                                        color: '#10b981'
+                                    }}>
+                                        ₹{analyticsData.totalSpent?.toLocaleString() || '0'}
+                                    </p>
+                                </div>
+                                
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#f8fafc',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    textAlign: 'center',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`
+                                }}>
+                                    <h3 style={{ margin: '0 0 15px', fontSize: '16px', opacity: 0.8 }}>Total Savings</h3>
+                                    <p style={{ 
+                                        margin: '0 0 10px', 
+                                        fontSize: '28px', 
+                                        fontWeight: 'bold',
+                                        color: '#f59e0b'
+                                    }}>
+                                        ₹{(analyticsData.totalSavings?.amount || 0).toLocaleString()}
+                                    </p>
+                                    <div style={{ fontSize: '12px', opacity: 0.7 }}>
+                                        <div>🎫 Coupons: ₹{(analyticsData.totalSavings?.details?.coupons || 0).toLocaleString()}</div>
+                                        <div>🪙 Smart Coins: ₹{(analyticsData.totalSavings?.details?.smartCoins || 0).toLocaleString()}</div>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#f8fafc',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    textAlign: 'center',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`
+                                }}>
+                                    <h3 style={{ margin: '0 0 10px', fontSize: '16px', opacity: 0.8 }}>Total Orders</h3>
+                                    <p style={{ 
+                                        margin: 0, 
+                                        fontSize: '28px', 
+                                        fontWeight: 'bold',
+                                        color: '#3b82f6'
+                                    }}>
+                                        {analyticsData.totalBills || analyticsData.totalOrders || 0}
+                                    </p>
+                                </div>
+                                </div>
+                            </div>
+
+                            {/* Charts Grid with Graph Filter */}
+                            <div style={{ marginBottom: '30px' }}>
+                                <div style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    marginBottom: '20px'
+                                }}>
+                                    <h3 style={{
+                                        fontSize: '20px',
+                                        fontWeight: 'bold',
+                                        margin: 0,
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        📈 Trends & Analysis
+                                    </h3>
+                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                        <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Year:</label>
+                                        <input
+                                            type="number"
+                                            value={graphYear}
+                                            onChange={(e) => setGraphYear(parseInt(e.target.value))}
+                                            min="2020"
+                                            max="2030"
+                                            placeholder="2025"
+                                            style={{
+                                                padding: '5px 10px',
+                                                borderRadius: '5px',
+                                                border: `1px solid ${currentTheme === 'dark' ? '#4b5563' : '#d1d5db'}`,
+                                                backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                                color: currentTheme === 'dark' ? '#ffffff' : '#000000',
+                                                fontSize: '14px',
+                                                width: '80px'
+                                            }}
+                                        />
+                                        
+                                        <button
+                                            onClick={fetchGraphData}
+                                            style={{
+                                                backgroundColor: '#3b82f6',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '5px',
+                                                padding: '5px 15px',
+                                                fontSize: '14px',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            Update
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                            {/* Charts Grid */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(500px, 1fr))',
+                                gap: '30px'
+                            }}>
+                                {/* Monthly Spending Trend */}
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`,
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 20px', 
+                                        fontSize: '20px', 
+                                        fontWeight: 'bold',
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        📈 {graphYear} Monthly Spending Trend
+                                    </h3>
+                                    {analyticsData.monthlySpending && (
+                                        <Line 
+                                            data={{
+                                                labels: analyticsData.monthlySpending.map(item => item.month),
+                                                datasets: [{
+                                                    label: 'Amount Spent (₹)',
+                                                    data: analyticsData.monthlySpending.map(item => item.amount),
+                                                    borderColor: '#3b82f6',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    borderWidth: 3,
+                                                    fill: true,
+                                                    tension: 0.4
+                                                }]
+                                            }}
+                                            options={{
+                                                responsive: true,
+                                                plugins: {
+                                                    legend: {
+                                                        labels: {
+                                                            color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                                                        }
+                                                    }
+                                                },
+                                                scales: {
+                                                    y: {
+                                                        ticks: {
+                                                            color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                                                        },
+                                                        grid: {
+                                                            color: currentTheme === 'dark' ? '#4b5563' : '#e5e7eb'
+                                                        }
+                                                    },
+                                                    x: {
+                                                        ticks: {
+                                                            color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                                                        },
+                                                        grid: {
+                                                            color: currentTheme === 'dark' ? '#4b5563' : '#e5e7eb'
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Category Distribution */}
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`,
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 20px', 
+                                        fontSize: '20px', 
+                                        fontWeight: 'bold',
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        🎯 Category-wise Spending
+                                    </h3>
+                                    {analyticsData.categoryWiseSpending && analyticsData.categoryWiseSpending.length > 0 && (
+                                        <Doughnut 
+                                            data={{
+                                                labels: analyticsData.categoryWiseSpending.map(item => item.category),
+                                                datasets: [{
+                                                    data: analyticsData.categoryWiseSpending.map(item => item.amount),
+                                                    backgroundColor: [
+                                                        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', 
+                                                        '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'
+                                                    ],
+                                                    borderWidth: 2,
+                                                    borderColor: currentTheme === 'dark' ? '#1f2937' : '#ffffff'
+                                                }]
+                                            }}
+                                            options={{
+                                                responsive: true,
+                                                plugins: {
+                                                    legend: {
+                                                        labels: {
+                                                            color: currentTheme === 'dark' ? '#ffffff' : '#000000'
+                                                        }
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* Top Products */}
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`,
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 20px', 
+                                        fontSize: '20px', 
+                                        fontWeight: 'bold',
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        🏆 Top 5 Most Purchased (By Quantity)
+                                    </h3>
+                                    {analyticsData.topProducts && analyticsData.topProducts.length > 0 ? (
+                                        <div style={{ space: '15px' }}>
+                                            {analyticsData.topProducts
+                                                .sort((a, b) => (b.totalQuantity || b.quantity || 0) - (a.totalQuantity || a.quantity || 0))
+                                                .slice(0, 5)
+                                                .map((product, index) => (
+                                                <div key={index} style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    padding: '15px',
+                                                    marginBottom: '10px',
+                                                    backgroundColor: currentTheme === 'dark' ? '#4b5563' : '#f8fafc',
+                                                    borderRadius: '10px',
+                                                    border: `1px solid ${currentTheme === 'dark' ? '#6b7280' : '#e2e8f0'}`
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                        <div style={{
+                                                            width: '30px',
+                                                            height: '30px',
+                                                            borderRadius: '50%',
+                                                            backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'][index],
+                                                            color: 'white',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            fontWeight: 'bold',
+                                                            fontSize: '14px',
+                                                            marginRight: '15px'
+                                                        }}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <div>
+                                                            <p style={{ 
+                                                                margin: '0 0 5px', 
+                                                                fontSize: '16px', 
+                                                                fontWeight: 'bold',
+                                                                color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                                            }}>
+                                                                {product.name || product.productName || 'Unknown Product'}
+                                                            </p>
+                                                            <p style={{ 
+                                                                margin: 0, 
+                                                                fontSize: '14px', 
+                                                                opacity: 0.7
+                                                            }}>
+                                                                Quantity: {product.totalQuantity || product.quantity || 0} items
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <p style={{ 
+                                                            margin: '0 0 5px', 
+                                                            fontSize: '18px', 
+                                                            fontWeight: 'bold',
+                                                            color: '#10b981'
+                                                        }}>
+                                                            ₹{(product.totalAmount || 0).toLocaleString()}
+                                                        </p>
+                                                        <p style={{ 
+                                                            margin: 0, 
+                                                            fontSize: '12px', 
+                                                            opacity: 0.7
+                                                        }}>
+                                                            Total Spent
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p style={{ 
+                                            textAlign: 'center', 
+                                            padding: '20px', 
+                                            opacity: 0.7 
+                                        }}>
+                                            No product data available
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Month-on-Month Comparison */}
+                                <div style={{
+                                    backgroundColor: currentTheme === 'dark' ? '#374151' : '#ffffff',
+                                    padding: '25px',
+                                    borderRadius: '15px',
+                                    border: `2px solid ${currentTheme === 'dark' ? '#4b5563' : '#e2e8f0'}`,
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                }}>
+                                    <h3 style={{ 
+                                        margin: '0 0 20px', 
+                                        fontSize: '20px', 
+                                        fontWeight: 'bold',
+                                        color: currentTheme === 'dark' ? '#ffffff' : '#1f2937'
+                                    }}>
+                                        📊 Month-on-Month Change
+                                    </h3>
+                                    <div style={{ textAlign: 'center', padding: '20px' }}>
+                                        <p style={{ 
+                                            fontSize: '48px', 
+                                            fontWeight: 'bold',
+                                            margin: '0 0 10px',
+                                            color: (analyticsData.monthlyComparison?.percentageChange || 0) >= 0 ? '#10b981' : '#ef4444'
+                                        }}>
+                                            {(analyticsData.monthlyComparison?.percentageChange || 0) >= 0 ? '+' : ''}{analyticsData.monthlyComparison?.percentageChange || 0}%
+                                        </p>
+                                        <p style={{ 
+                                            fontSize: '18px', 
+                                            opacity: 0.8,
+                                            margin: 0
+                                        }}>
+                                            {(analyticsData.monthlyComparison?.percentageChange || 0) >= 0 ? '📈 Spending Increased' : '📉 Spending Decreased'} vs Last Month
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div style={{
+                                marginTop: '40px',
+                                textAlign: 'center',
+                                padding: '20px',
+                                borderTop: `2px solid ${currentTheme === 'dark' ? '#374151' : '#e5e7eb'}`
+                            }}>
+                                <button
+                                    onClick={() => fetchAnalyticsData()}
+                                    style={{
+                                        backgroundColor: '#3b82f6',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        padding: '12px 24px',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        marginRight: '15px'
+                                    }}
+                                >
+                                    🔄 Refresh Data
+                                </button>
+                                <button
+                                    onClick={() => setShowAnalyticsModal(false)}
+                                    style={{
+                                        backgroundColor: '#6b7280',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '10px',
+                                        padding: '12px 24px',
+                                        fontSize: '16px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Close Dashboard
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '50px' }}>
+                            <p style={{ fontSize: '18px', marginBottom: '20px' }}>
+                                No analytics data available. This might be because:
+                            </p>
+                            <ul style={{ 
+                                textAlign: 'left', 
+                                maxWidth: '400px', 
+                                margin: '0 auto 20px',
+                                lineHeight: '1.8'
+                            }}>
+                                <li>You haven't made any purchases yet</li>
+                                <li>Your purchase data is still being processed</li>
+                                <li>There might be a connection issue</li>
+                            </ul>
+                            <button
+                                onClick={() => fetchAnalyticsData()}
+                                style={{
+                                    backgroundColor: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '10px',
+                                    padding: '12px 24px',
+                                    fontSize: '16px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Try Again
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    )}
 
     {/* =============================================================================
         PRODUCTS VIEW - Detailed Product Browsing Interface
@@ -1945,6 +2873,8 @@ return (
                 showWishlistView();
                 } else if (feature.title === "Smart Billing") {
                 showSmartBillingView();
+                } else if (feature.title === "Visualize Your Spending Trends") {
+                showAnalyticsView();
                 } else if (feature.title === "Your Profile Handle") {
                 // Check if user is authenticated before navigating
                 const token = localStorage.getItem('token');
@@ -3032,7 +3962,7 @@ return (
                                 return (
                                     <div className={`${themeStyles.cardBg} rounded-lg border ${themeStyles.border} p-6`}>
                                         {/* Back Button */}
-                                        <div className="flex items-center justify-between mb-6 pb-4 border-b ${themeStyles.border}">
+                                        <div className={`flex items-center justify-between mb-6 pb-4 border-b ${themeStyles.border}`}>
                                             <button
                                                 onClick={() => setExpandedBill(null)}
                                                 className={`flex items-center space-x-2 px-4 py-2 ${themeStyles.cardBg} border ${themeStyles.border} rounded-lg hover:${themeStyles.hoverBg} transition-all duration-300 transform hover:scale-105 hover:shadow-lg`}
@@ -4213,6 +5143,88 @@ return (
             </div>
         </div>
         </div>
+
+        {/* =============================================================================
+            ANALYTICS MODAL - Comprehensive Spending Analytics Dashboard
+            ============================================================================= */}
+        {showAnalyticsModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+                    
+                    {/* Simple Modal Header */}
+                    <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                            <BarChart className="w-8 h-8 text-purple-600" />
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h2>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Your spending insights</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setShowAnalyticsModal(false)}
+                            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                            <X className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                        </button>
+                    </div>
+
+                    {/* Simple Modal Content */}
+                    <div className="p-6">
+                        {analyticsLoading ? (
+                            <div className="flex items-center justify-center py-20">
+                                <Loader2 className="h-12 w-12 animate-spin text-purple-500" />
+                                <span className="ml-4 text-lg text-gray-600 dark:text-gray-400">Loading analytics...</span>
+                            </div>
+                        ) : analyticsError ? (
+                            <div className="flex items-center justify-center py-20">
+                                <div className="text-center">
+                                    <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Error</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">{analyticsError}</p>
+                                    <button
+                                        onClick={() => fetchAnalyticsData()}
+                                        className="mt-4 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            </div>
+                        ) : analyticsData ? (
+                            <div className="space-y-6">
+                                <div className="text-center">
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Analytics Data Loaded!</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                        Total Spent: ₹{analyticsData.totalSpent || 0} | 
+                                        Total Bills: {analyticsData.totalBills || 0}
+                                    </p>
+                                </div>
+                                
+                                {/* Show some basic data */}
+                                {analyticsData.monthlySpending && (
+                                    <div>
+                                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Monthly Spending:</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                            {analyticsData.monthlySpending.slice(0, 6).map((item, index) => (
+                                                <div key={index} className="p-3 bg-gray-100 dark:bg-gray-700 rounded">
+                                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{item.month}</div>
+                                                    <div className="text-lg font-bold text-purple-600">₹{item.amount}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-20">
+                                <BarChart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Data Available</h3>
+                                <p className="text-gray-600 dark:text-gray-400">Start shopping to see your analytics!</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        )}
 
         {/* Floating Smart Billing Button - Always Accessible */}
         <div className="fixed bottom-6 right-6 z-50">
