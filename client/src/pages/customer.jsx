@@ -264,6 +264,9 @@ useEffect(() => {
     const savedCustomerName = localStorage.getItem('customerName') || "Guest";
     setCustomerName(savedCustomerName);
     
+    // Load categories on initial mount (but not products to avoid changing view)
+    fetchCategories();
+    
     // Greet the user by name when they login/enter the page (only once)
     if (savedCustomerName && savedCustomerName !== "Guest" && !hasSpokenWelcome.current) {
         hasSpokenWelcome.current = true;
@@ -327,6 +330,28 @@ const fetchProducts = async (category = "") => {
     setError('Unable to load products. Please try again.');
     } finally {
     setLoading(false);
+    }
+};
+
+/** Fetch products silently without changing view (for Smart Billing) */
+const fetchProductsSilently = async () => {
+    if (products.length > 0) return; // Don't fetch if already loaded
+    
+    setLoading(true);
+    try {
+        const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.products));
+        if (!response.ok) throw new Error('Failed to fetch products');
+        
+        const data = await response.json();
+        setProducts(data);
+        setFilteredProducts(data);
+        
+        // Build search trie for efficient searching
+        trie.buildTrie(data);
+    } catch (err) {
+        console.error('Error loading products for Smart Billing:', err);
+    } finally {
+        setLoading(false);
     }
 };
 
@@ -574,6 +599,11 @@ const getFilterDisplayText = () => {
 
 /** Show Smart Billing modal and initialize */
 const showSmartBillingView = (initialStep = 'search') => {
+    // If products aren't loaded yet, load them silently
+    if (products.length === 0) {
+        fetchProductsSilently();
+    }
+    
     setShowSmartBillingModal(true);
     setBillingStep(initialStep === 2 ? 'cart' : 'search');
     if (initialStep !== 2) {
@@ -1748,7 +1778,7 @@ return (
 
             {/* Quick Smart Billing Access */}
             <button
-                onClick={() => setShowSmartBillingModal(true)}
+                onClick={() => showSmartBillingView()}
                 className="group relative flex items-center space-x-2 transition-all duration-300 bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-2 border-violet-300 hover:border-violet-500 hover:shadow-lg hover:shadow-violet-500/25 transform hover:scale-105 px-4 py-2 rounded-lg"
                 title="Smart Billing - Quick Access"
             >
@@ -2795,11 +2825,11 @@ return (
         <div className="flex justify-center">
         <GradientButton
             variant={feature.special ? "primary" : "success"}
-            className={`px-8 py-3 font-semibold text-sm uppercase tracking-wide transform transition-all duration-300 hover:scale-110 hover:shadow-xl active:scale-95 group relative overflow-hidden rounded-lg ${
+            className={`px-8 py-3 font-semibold text-sm uppercase tracking-wide transform transition-all duration-300 hover:scale-105 hover:shadow-xl active:scale-95 group relative rounded-lg ${
             feature.special 
-                ? "bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 shadow-lg hover:shadow-blue-500/50 hover:shadow-2xl border-2 border-transparent hover:border-white/20" 
-                : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-emerald-500/40 hover:shadow-xl border-2 border-transparent hover:border-emerald-300/30"
-            } hover:animate-pulse`}
+                ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 shadow-lg hover:shadow-purple-500/25" 
+                : "bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-emerald-500/25"
+            }`}
             onClick={(e) => {
             e.stopPropagation(); // Prevent card click
             if (feature.special) {
@@ -2838,28 +2868,12 @@ return (
             }
             }}
         >
-            {/* Button shine effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
-            
-            {/* Button ripple effect */}
-            <div className="absolute inset-0 rounded-lg bg-white/10 scale-0 group-hover:scale-100 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
-            
-            {/* Floating particles for special buttons */}
-            {feature.special && (
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700">
-                <div className="absolute top-1 left-2 w-1 h-1 bg-white/60 rounded-full animate-ping" style={{animationDelay: '0.1s'}}></div>
-                <div className="absolute top-2 right-3 w-1 h-1 bg-white/50 rounded-full animate-ping" style={{animationDelay: '0.3s'}}></div>
-                <div className="absolute bottom-1 left-4 w-1 h-1 bg-white/40 rounded-full animate-ping" style={{animationDelay: '0.5s'}}></div>
-                <div className="absolute bottom-2 right-1 w-1 h-1 bg-white/60 rounded-full animate-ping" style={{animationDelay: '0.7s'}}></div>
-            </div>
-            )}
-            
             {/* Button content */}
-            <span className="relative z-10 flex items-center gap-2">
+            <span className="relative z-10 flex items-center justify-center gap-2 w-full">
             {feature.special ? (
                 <>
-                <Star className="h-4 w-4" />
-                Launch AI Assistant
+                <Star className="h-4 w-4 flex-shrink-0" />
+                <span>Launch AI Assistant</span>
                 </>
             ) : feature.title === "View Products" ? (
                 <>
@@ -4377,10 +4391,20 @@ return (
 
                 {/* Products Grid */}
                 <div className="products-grid-container overflow-hidden">
-                {billingLoading ? (
+                {billingLoading || products.length === 0 ? (
                     <div className="flex items-center justify-center py-12">
                     <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                    <span className={`ml-3 ${themeStyles.textSecondary}`}>Loading products...</span>
+                    <span className={`ml-3 ${themeStyles.textSecondary}`}>
+                        {products.length === 0 ? 'Loading products...' : 'Searching products...'}
+                    </span>
+                    </div>
+                ) : searchResults.length === 0 && billingSearchQuery ? (
+                    <div className="flex flex-col items-center justify-center py-12">
+                    <Package className="h-16 w-16 text-gray-400 mb-4" />
+                    <p className={`text-lg font-semibold ${themeStyles.text} mb-2`}>No products found</p>
+                    <p className={`${themeStyles.textSecondary} text-center`}>
+                        Try searching with different keywords or check the spelling
+                    </p>
                     </div>
                 ) : (
                     <div className="relative">
@@ -5177,7 +5201,7 @@ return (
         {/* Floating Smart Billing Button - Always Accessible */}
         <div className="fixed bottom-6 right-6 z-50">
             <button
-                onClick={() => setShowSmartBillingModal(true)}
+                onClick={() => showSmartBillingView()}
                 className="group relative bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-700 hover:to-purple-800 text-white p-4 rounded-full shadow-2xl hover:shadow-violet-500/25 transform hover:scale-110 transition-all duration-300 border-2 border-white/20"
                 title="Quick Smart Billing Access"
             >
