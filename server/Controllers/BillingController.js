@@ -601,6 +601,44 @@ const findBestCoupon = async (req, res) => {
     }
 };
 
+/**
+ * Get customer bills for Smart Shopping Assistant
+ * Returns simplified bill data for purchase history analysis
+ */
+const getCustomerBillsForAssistant = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        // Fetch bills for the customer, sorted by date (newest first)
+        const bills = await Bill.find({ customerId: userId })
+            .sort({ billDate: -1 })
+            .limit(20) // Get last 20 bills
+            .select('billDate items totalAmount')
+            .lean();
+
+        res.status(200).json({
+            success: true,
+            message: 'Customer bills fetched successfully',
+            bills: bills
+        });
+
+    } catch (error) {
+        console.error('Error fetching customer bills for assistant:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch customer bills',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getAvailableCoupons,
     validateCoupon,
@@ -608,5 +646,6 @@ module.exports = {
     createBill,
     getBillHistory,
     getBillById,
-    findBestCoupon
+    findBestCoupon,
+    getCustomerBillsForAssistant
 };

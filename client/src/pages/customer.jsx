@@ -45,6 +45,9 @@ import { Line, Doughnut, Bar } from 'react-chartjs-2';
 // Utilities and API
 import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
 
+// Smart Shopping Assistant
+import SmartShoppingAssistant from '../components/SmartShoppingAssistant';
+
 // Register Chart.js components
 ChartJS.register(
     CategoryScale,
@@ -240,6 +243,9 @@ const [showPaymentSuccess, setShowPaymentSuccess] = useState(false); // Payment 
 
 // Analytics modal states
 const [showAnalyticsModal, setShowAnalyticsModal] = useState(false); // Analytics modal toggle
+
+// Smart Shopping Assistant modal toggle
+const [showSmartShoppingAssistant, setShowSmartShoppingAssistant] = useState(false);
 const [analyticsData, setAnalyticsData] = useState(null); // Analytics data
 const [analyticsLoading, setAnalyticsLoading] = useState(false); // Analytics loading state
 const [analyticsError, setAnalyticsError] = useState(''); // Analytics error message
@@ -552,11 +558,13 @@ const getFilterDisplayText = () => {
 // =============================================================================
 
 /** Show Smart Billing modal and initialize */
-const showSmartBillingView = () => {
+const showSmartBillingView = (initialStep = 'search') => {
     setShowSmartBillingModal(true);
-    setBillingStep('search');
-    setCart([]);
-    setCartTotal(0);
+    setBillingStep(initialStep === 2 ? 'cart' : 'search');
+    if (initialStep !== 2) {
+        setCart([]);
+        setCartTotal(0);
+    }
     setAppliedCoupon(null);
     setCouponDiscount(0);
     setSmartCoinsToUse(0);
@@ -634,20 +642,27 @@ const handleBillingSearch = (query) => {
 
 /** Add product to cart */
 const addToCart = (product) => {
+    // Normalize product structure - handle both Django API and existing structures
+    const normalizedProduct = {
+        ...product,
+        price: product.selling_price || product.price || 0,
+        stock: product.stock || 0
+    };
+
     setCart(prevCart => {
-        const existingItem = prevCart.find(item => item.id === product.id);
+        const existingItem = prevCart.find(item => item.id === normalizedProduct.id);
         
         if (existingItem) {
             // Check stock availability
-            if (existingItem.quantity >= product.stock) {
-                setBillingError(`Only ${product.stock} items available for ${product.name}`);
+            if (existingItem.quantity >= normalizedProduct.stock) {
+                setBillingError(`Only ${normalizedProduct.stock} items available for ${normalizedProduct.name}`);
                 setTimeout(() => setBillingError(''), 3000);
                 return prevCart;
             }
             
             // Update quantity
             const updatedCart = prevCart.map(item =>
-                item.id === product.id
+                item.id === normalizedProduct.id
                     ? { ...item, quantity: item.quantity + 1 }
                     : item
             );
@@ -667,17 +682,18 @@ const addToCart = (product) => {
             return updatedCart;
         } else {
             // Check stock availability
-            if (product.stock <= 0) {
-                setBillingError(`${product.name} is out of stock`);
+            if (normalizedProduct.stock <= 0) {
+                setBillingError(`${normalizedProduct.name} is out of stock`);
                 setTimeout(() => setBillingError(''), 3000);
                 return prevCart;
             }
             
-            // Add new item
+            // Add new item with normalized price
             const newCart = [...prevCart, { 
-                ...product, 
+                ...normalizedProduct, 
                 quantity: 1,
-                itemTotal: product.price 
+                price: normalizedProduct.price,
+                itemTotal: normalizedProduct.price 
             }];
             updateCartTotal(newCart);
             
@@ -2856,7 +2872,8 @@ return (
             onClick={(e) => {
             e.stopPropagation(); // Prevent card click
             if (feature.special) {
-                // Handle AI Assistant launch
+                // Handle AI Assistant launch - Open Smart Shopping Assistant
+                setShowSmartShoppingAssistant(true);
             } else {
                 // Handle View action
                 if (feature.title === "View Products") {
@@ -5254,6 +5271,21 @@ return (
         </div>
 
         </>
+    )}
+    
+    {/* =============================================================================
+        SMART SHOPPING ASSISTANT MODAL
+        ============================================================================= */}
+    {showSmartShoppingAssistant && (
+        <SmartShoppingAssistant
+            isOpen={showSmartShoppingAssistant}
+            onClose={() => setShowSmartShoppingAssistant(false)}
+            currentTheme={currentTheme}
+            themeStyles={themeStyles}
+            onOpenSmartBilling={showSmartBillingView}
+            onAddToCart={addToCart}
+            cartItems={cart}
+        />
     )}
     
     </div>

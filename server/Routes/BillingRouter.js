@@ -7,7 +7,8 @@ const {
     createBill,
     getBillHistory,
     getBillById,
-    findBestCoupon
+    findBestCoupon,
+    getCustomerBillsForAssistant
 } = require('../Controllers/BillingController');
 
 // =============================================================================
@@ -34,5 +35,8 @@ router.get('/history/:customerId', getBillHistory);
 
 // Get specific bill by ID
 router.get('/:billId', getBillById);
+
+// Get customer bills for Smart Shopping Assistant
+router.get('/customer/:userId', getCustomerBillsForAssistant);
 
 module.exports = router;
