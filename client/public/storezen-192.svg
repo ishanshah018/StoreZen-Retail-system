@@ -1,0 +1,25 @@
+<svg width="192" height="192" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Perfect Shop Building -->
+  
+  <!-- Shop Base/Foundation -->
+  <rect x="6" y="18" width="20" height="12" fill="#6366f1" stroke="#4f46e5" stroke-width="1"/>
+  
+  <!-- Shop Roof/Awning -->
+  <path d="M4 18 L16 12 L28 18 Z" fill="#4f46e5" stroke="#3730a3" stroke-width="1"/>
+  
+  <!-- Shop Front Window -->
+  <rect x="8" y="20" width="6" height="6" fill="#ffffff" stroke="#e5e7eb" stroke-width="0.5"/>
+  
+  <!-- Shop Door -->
+  <rect x="16" y="20" width="4" height="10" fill="#ffffff" stroke="#e5e7eb" stroke-width="0.5"/>
+  <circle cx="19" cy="25" r="0.5" fill="#6366f1"/>
+  
+  <!-- Another Shop Window -->
+  <rect x="22" y="20" width="6" height="6" fill="#ffffff" stroke="#e5e7eb" stroke-width="0.5"/>
+  
+  <!-- Shop Sign -->
+  <rect x="10" y="14" width="12" height="3" fill="#ffffff" stroke="#e5e7eb" stroke-width="0.5" rx="0.5"/>
+  
+  <!-- Chimney -->
+  <rect x="24" y="10" width="2" height="6" fill="#6b7280"/>
+</svg>
