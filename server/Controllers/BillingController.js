@@ -68,15 +68,9 @@ const validateCoupon = async (req, res) => {
             });
         }
 
-        // Check minimum purchase requirement
-        if (cartTotal < coupon.min_purchase) {
-            return res.status(400).json({
-                success: false,
-                message: `Minimum purchase of ₹${coupon.min_purchase} required for this coupon`
-            });
-        }
-
-        // Check category applicability if items provided
+        // Check category applicability and calculate applicable amount
+        let applicableAmount = cartTotal; // Default to full cart total
+        
         if (items && items.length > 0 && coupon.applicable_categories.length > 0) {
             const applicableItems = items.filter(item => 
                 coupon.applicable_categories.includes(item.category) ||
@@ -89,17 +83,34 @@ const validateCoupon = async (req, res) => {
                     message: 'This coupon is not applicable to any items in your cart'
                 });
             }
+            
+            // Calculate total amount for applicable category items only
+            applicableAmount = applicableItems.reduce((total, item) => 
+                total + (item.price * item.quantity), 0
+            );
         }
 
-        // Calculate discount
+        // Check minimum purchase requirement against applicable category amount
+        if (applicableAmount < coupon.min_purchase) {
+            const categoryText = coupon.applicable_categories.includes('All') 
+                ? 'total purchase' 
+                : `${coupon.applicable_categories.join(', ')} category purchase`;
+            
+            return res.status(400).json({
+                success: false,
+                message: `Minimum ${categoryText} of ₹${coupon.min_purchase} required for this coupon (current: ₹${Math.round(applicableAmount)})`
+            });
+        }
+
+        // Calculate discount based on applicable amount
         let discount = 0;
         if (coupon.type === '%') {
-            discount = (cartTotal * coupon.value) / 100;
+            discount = (applicableAmount * coupon.value) / 100;
             if (discount > coupon.max_discount) {
                 discount = coupon.max_discount;
             }
         } else if (coupon.type === 'rs') {
-            discount = Math.min(coupon.value, cartTotal);
+            discount = Math.min(coupon.value, applicableAmount);
         }
 
         res.status(200).json({
@@ -509,12 +520,11 @@ const findBestCoupon = async (req, res) => {
 
         const currentDate = new Date();
         
-        // Get all valid coupons
+        // Get all valid coupons (don't filter by min_purchase here as we need to check category-specific amounts)
         const coupons = await Coupon.find({
             is_active: true,
             valid_from: { $lte: currentDate },
-            valid_until: { $gte: currentDate },
-            min_purchase: { $lte: cartTotal }
+            valid_until: { $gte: currentDate }
         });
 
         let bestCoupon = null;
@@ -522,25 +532,38 @@ const findBestCoupon = async (req, res) => {
 
         // Find the coupon with maximum discount
         for (const coupon of coupons) {
-            // Check category applicability
+            // Calculate applicable amount for this coupon
+            let applicableAmount = cartTotal; // Default to full cart total
+            
+            // Check category applicability and calculate category-specific amount
             if (items && items.length > 0 && coupon.applicable_categories.length > 0) {
                 const applicableItems = items.filter(item => 
                     coupon.applicable_categories.includes(item.category) ||
                     coupon.applicable_categories.includes('All')
                 );
                 
-                if (applicableItems.length === 0) continue;
+                if (applicableItems.length === 0) continue; // Skip if no applicable items
+                
+                // Calculate total amount for applicable category items only
+                applicableAmount = applicableItems.reduce((total, item) => 
+                    total + (item.price * item.quantity), 0
+                );
+            }
+            
+            // Check if minimum purchase requirement is met for applicable amount
+            if (applicableAmount < coupon.min_purchase) {
+                continue; // Skip this coupon as minimum not met
             }
 
-            // Calculate discount for this coupon
+            // Calculate discount for this coupon based on applicable amount
             let discount = 0;
             if (coupon.type === '%') {
-                discount = (cartTotal * coupon.value) / 100;
+                discount = (applicableAmount * coupon.value) / 100;
                 if (discount > coupon.max_discount) {
                     discount = coupon.max_discount;
                 }
             } else if (coupon.type === 'rs') {
-                discount = Math.min(coupon.value, cartTotal);
+                discount = Math.min(coupon.value, applicableAmount);
             }
 
             if (discount > maxDiscount) {
