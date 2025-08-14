@@ -142,7 +142,8 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     const [newProduct, setNewProduct] = useState({
         name: '',
         category: '',
-        price: '',
+        selling_price: '',
+        cost_price: '',
         stock: ''
     });
 
@@ -586,7 +587,10 @@ import CouponManagement from '../components/CouponManagement';    // ===========
         id: product.id,
         name: product.name,
         category: product.category,
-        price: product.price,
+        selling_price: product.selling_price,
+        cost_price: product.cost_price,
+        profit_per_unit: product.profit_per_unit,
+        profit_margin: product.profit_margin,
         stock: product.stock || 0, // Using the actual stock field from Django model
         in_stock: product.in_stock // Include the in_stock boolean field
     }));
@@ -1191,8 +1195,6 @@ import CouponManagement from '../components/CouponManagement';    // ===========
                 console.log('✅ Manager: Product restocked successfully');
                 
                 // Step 2: Remove the product from all customer wishlists
-                let removedFromWishlistsCount = 0;
-                
                 // Fire and forget approach since manual verification shows it works
                 console.log('🗑️ Manager: Triggering wishlist removal for product:', selectedProduct.productId);
                 fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.wishlist.removeProduct}/${selectedProduct.productId}`, {
@@ -1311,7 +1313,17 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     return;
     }
 
-    if (!newProduct.price || parseFloat(newProduct.price) <= 0) {
+    if (!newProduct.selling_price || parseFloat(newProduct.selling_price) <= 0) {
+    return;
+    }
+
+    if (!newProduct.cost_price || parseFloat(newProduct.cost_price) <= 0) {
+    return;
+    }
+
+    // Validate that selling price is greater than cost price
+    if (parseFloat(newProduct.selling_price) <= parseFloat(newProduct.cost_price)) {
+    setProductNameError('Selling price must be greater than cost price for profit!');
     return;
     }
 
@@ -1341,9 +1353,10 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     body: JSON.stringify({
     name: newProduct.name.trim(),
     category: newProduct.category.trim(),
-    price: parseFloat(newProduct.price),
+    selling_price: parseFloat(newProduct.selling_price),
+    cost_price: parseFloat(newProduct.cost_price),
     stock: parseInt(newProduct.stock),
-    demand: 'normal' // Default demand level
+    demand_level: 'Normal' // Default demand level
     }),
     });
 
@@ -1353,7 +1366,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
 
     // Show success animation
     setShowSuccess(true);
-    setNewProduct({ name: '', category: '', price: '', stock: '' });
+    setNewProduct({ name: '', category: '', selling_price: '', cost_price: '', stock: '' });
     setProductSuggestions([]);
     setShowProductSuggestions(false);
     setCategorySuggestions([]);
@@ -1373,22 +1386,29 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     setLoading(false);
     }
     };
-    // Function to update stock
-    const updateStock = async (productId, newStock) => {
+    // Function to update stock and selling price
+    const updateStock = async (productId, newStock, newSellingPrice = null) => {
     setLoading(true);
     try {
+    const updateData = {
+    stock: parseInt(newStock)
+    };
+    
+    // Only include selling_price in update if provided
+    if (newSellingPrice !== null && newSellingPrice !== '') {
+    updateData.selling_price = parseFloat(newSellingPrice);
+    }
+    
     const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.products, `${productId}/`), {
     method: 'PATCH',
     headers: {
     'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-    stock: parseInt(newStock)
-    }),
+    body: JSON.stringify(updateData),
     });
 
     if (!response.ok) {
-    throw new Error('Failed to update stock');
+    throw new Error('Failed to update product');
     }
 
     // Show success tick for this specific product
@@ -1397,8 +1417,8 @@ import CouponManagement from '../components/CouponManagement';    // ===========
 
     fetchStockData(); // Refresh data
     } catch (error) {
-    console.error('Error updating stock:', error);
-    alert('Failed to update stock. Please try again.');
+    console.error('Error updating product:', error);
+    alert('Failed to update product. Please try again.');
     } finally {
     setLoading(false);
     }
@@ -1708,7 +1728,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     const handleCancelAddProduct = () => {
     setShowAddProduct(false);
     setShowInventoryOptions(true);
-    setNewProduct({ name: '', category: '', price: '', stock: '' });
+    setNewProduct({ name: '', category: '', selling_price: '', cost_price: '', stock: '' });
     setProductNameError('');
     setProductSuggestions([]);
     setShowProductSuggestions(false);
@@ -1802,7 +1822,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
         {/* Stock Update Card */}
         <ActionCard
             icon={Settings}
-            title="Stock Update"
+            title="Stock/Price Update"
             description="Modify quantities"
             onClick={() => {
             setShowInventoryOptions(false);
@@ -2102,23 +2122,23 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     )}
     </div>
 
-    {/* Price and Stock Row */}
+    {/* Pricing Section - Selling Price and Cost Price */}
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
     <div className="space-y-2">
     <label className={`block text-sm font-semibold ${theme.text}`}>
-    Price (₹)
+    Selling Price (₹) *
     </label>
     <div className="relative">
     <input
     type="number"
     step="0.01"
     min="0"
-    value={newProduct.price}
-    onChange={(e) => setNewProduct({...newProduct, price: e.target.value})}
+    value={newProduct.selling_price}
+    onChange={(e) => setNewProduct({...newProduct, selling_price: e.target.value})}
     className={`w-full px-4 py-3 rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border} focus:border-blue-400 placeholder-gray-400`}
     placeholder="0.00"
     />
-    {newProduct.price && parseFloat(newProduct.price) > 0 && (
+    {newProduct.selling_price && parseFloat(newProduct.selling_price) > 0 && (
     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
     <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
     <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2130,6 +2150,61 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     </div>
     </div>
 
+    <div className="space-y-2">
+    <label className={`block text-sm font-semibold ${theme.text}`}>
+    Cost Price (₹) *
+    </label>
+    <div className="relative">
+    <input
+    type="number"
+    step="0.01"
+    min="0"
+    value={newProduct.cost_price}
+    onChange={(e) => setNewProduct({...newProduct, cost_price: e.target.value})}
+    className={`w-full px-4 py-3 rounded-lg border-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border} focus:border-orange-400 placeholder-gray-400`}
+    placeholder="0.00"
+    />
+    {newProduct.cost_price && parseFloat(newProduct.cost_price) > 0 && (
+    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+    <div className="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center">
+    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+    </svg>
+    </div>
+    </div>
+    )}
+    </div>
+    </div>
+    </div>
+
+    {/* Profit Preview (Auto-calculated) */}
+    {newProduct.selling_price && newProduct.cost_price && 
+     parseFloat(newProduct.selling_price) > 0 && parseFloat(newProduct.cost_price) > 0 && (
+    <div className={`p-4 rounded-lg border ${theme.border} ${theme.cardBg} bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20`}>
+    <div className="flex items-center justify-between mb-2">
+    <span className={`text-sm font-medium ${theme.text}`}>Profit Preview:</span>
+    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+    </div>
+    <div className="grid grid-cols-2 gap-4 text-sm">
+    <div className="text-center">
+    <p className={`${theme.textSecondary}`}>Profit per Unit</p>
+    <p className={`text-lg font-bold text-green-600 dark:text-green-400`}>
+    ₹{(parseFloat(newProduct.selling_price) - parseFloat(newProduct.cost_price)).toFixed(2)}
+    </p>
+    </div>
+    <div className="text-center">
+    <p className={`${theme.textSecondary}`}>Profit Margin</p>
+    <p className={`text-lg font-bold text-blue-600 dark:text-blue-400`}>
+    {(((parseFloat(newProduct.selling_price) - parseFloat(newProduct.cost_price)) / parseFloat(newProduct.selling_price)) * 100).toFixed(2)}%
+    </p>
+    </div>
+    </div>
+    </div>
+    )}
+
+    {/* Stock Section */}
     <div className="space-y-2">
     <label className={`block text-sm font-semibold ${theme.text}`}>
     Initial Stock
@@ -2155,7 +2230,6 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     </div>
     </div>
     </div>
-    </div>
 
         {/* Action Buttons */}
         <div className="flex space-x-4 mt-8 pt-6 border-t border-gray-200">
@@ -2163,7 +2237,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
             variant="primary"
             className="flex-1 py-3 px-6"
             onClick={addProduct}
-            disabled={loading || !!productNameError || !newProduct.name.trim() || !newProduct.category.trim() || !newProduct.price || !newProduct.stock}
+            disabled={loading || !!productNameError || !newProduct.name.trim() || !newProduct.category.trim() || !newProduct.selling_price || !newProduct.cost_price || !newProduct.stock}
             >
             {loading ? (
                 <div className="flex items-center justify-center">
@@ -2195,7 +2269,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     <div className={`rounded-xl p-4 md:p-8 w-full max-w-sm md:max-w-4xl shadow-2xl max-h-[90vh] overflow-y-auto backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
     <div className="flex justify-between items-center mb-6">
     <h3 className={`text-xl md:text-2xl font-bold ${theme.text}`}>
-    Update Stock Levels
+    Update Stock & Selling Price
     </h3>
     <Button 
     variant="outline" 
@@ -2252,11 +2326,12 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     {!stockLoading && filteredUpdateStockData.length > 0 && (
     <div className="space-y-4">
     {/* Desktop Header - Hidden on mobile */}
-    <div className={`hidden md:grid grid-cols-4 gap-4 p-4 rounded-lg font-semibold ${theme.gradientOverlay} ${theme.border} border`}>
+    <div className={`hidden md:grid grid-cols-5 gap-4 p-4 rounded-lg font-semibold ${theme.gradientOverlay} ${theme.border} border`}>
     <div className={`${theme.text}`}>Product Name</div>
     <div className={`${theme.text}`}>Category</div>
-    <div className={`${theme.text}`}>Current Stock</div>
-    <div className={`${theme.text}`}>Update</div>
+    <div className={`${theme.text}`}>Stock / Price</div>
+    <div className={`${theme.text}`}>Update Values</div>
+    <div className={`${theme.text}`}>Actions</div>
     </div>
 
     {filteredUpdateStockData.map((product) => (
@@ -2281,68 +2356,115 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     {product.stock}
     </span>
     </div>
-    <div className="flex items-center space-x-2 justify-between">
-    <span className={`text-sm ${theme.textSecondary}`}>New Stock:</span>
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center justify-between">
+    <span className={`text-sm ${theme.textSecondary}`}>Current Selling Price:</span>
+    <span className={`font-semibold ${theme.text}`}>
+    ₹{product.selling_price}
+    </span>
+    </div>
+    <div className="grid grid-cols-2 gap-3">
+    <div>
+    <label className={`text-xs ${theme.textSecondary} block mb-1`}>New Stock:</label>
     <input
     type="number"
     defaultValue={product.stock}
     min="0"
-    className={`w-16 px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
+    className={`w-full px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
     id={`stock-${product.id}`}
     />
+    </div>
+    <div>
+    <label className={`text-xs ${theme.textSecondary} block mb-1`}>New Price (₹):</label>
+    <input
+    type="number"
+    defaultValue={parseFloat(product.selling_price)}
+    min="0"
+    step="0.01"
+    className={`w-full px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
+    id={`price-${product.id}`}
+    />
+    </div>
+    </div>
     <GradientButton
-    size="sm"
     variant="primary"
-    className="px-3 py-1 text-sm"
+    className="w-full px-3 py-2 text-sm"
     onClick={() => {
         const newStockValue = document.getElementById(`stock-${product.id}`).value;
-        updateStock(product.id, newStockValue);
+        const newPriceValue = document.getElementById(`price-${product.id}`).value;
+        updateStock(product.id, newStockValue, newPriceValue);
     }}
     disabled={loading}
     >
     {updateSuccess === product.id ? (
-        <span className="text-green-500">Updated</span>
+        <span className="text-green-500 flex items-center justify-center">
+        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        Updated Successfully
+        </span>
     ) : (
-        'Update'
+        'Update Stock & Price'
     )}
     </GradientButton>
     </div>
-    </div>
-    </div>
 
     {/* Desktop Layout - Grid */}
-    <div className="hidden md:grid grid-cols-4 gap-4 p-4">
-    <div className={`font-medium ${theme.text} flex items-center`}>
+    <div className="hidden md:grid grid-cols-5 gap-4 p-4 items-center">
+    <div className={`font-medium ${theme.text}`}>
     {product.name}
     </div>
-    <div className={`${theme.textSecondary} flex items-center`}>
+    <div className={`${theme.textSecondary}`}>
     <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
     {product.category}
     </span>
     </div>
-    <div className={`font-semibold text-lg ${theme.text} flex items-center`}>
-    {product.stock}
+    <div className={`${theme.text}`}>
+    <div className="space-y-1">
+    <div className="text-sm">Stock: <span className="font-semibold">{product.stock}</span></div>
+    <div className="text-sm">Price: <span className="font-semibold">₹{product.selling_price}</span></div>
     </div>
-    <div className="flex items-center space-x-2">
+    </div>
+    <div className="space-y-2">
+    <div>
+    <label className={`text-xs ${theme.textSecondary} block mb-1`}>New Stock:</label>
     <input
     type="number"
     defaultValue={product.stock}
     min="0"
-    className={`w-20 px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
+    className={`w-full px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
     id={`stock-desktop-${product.id}`}
     />
+    </div>
+    <div>
+    <label className={`text-xs ${theme.textSecondary} block mb-1`}>New Price (₹):</label>
+    <input
+    type="number"
+    defaultValue={parseFloat(product.selling_price)}
+    min="0"
+    step="0.01"
+    className={`w-full px-2 py-1 rounded border text-center ${theme.cardBg} ${theme.text} ${theme.border}`}
+    id={`price-desktop-${product.id}`}
+    />
+    </div>
+    </div>
+    <div className="flex justify-center">
     <Button
     size="sm"
-    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg rounded px-3 py-1 text-sm flex items-center"
+    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:shadow-lg rounded px-4 py-2 text-sm flex items-center whitespace-nowrap"
     onClick={() => {
         const newStockValue = document.getElementById(`stock-desktop-${product.id}`).value;
-        updateStock(product.id, newStockValue);
+        const newPriceValue = document.getElementById(`price-desktop-${product.id}`).value;
+        updateStock(product.id, newStockValue, newPriceValue);
     }}
     disabled={loading}
     >
     {updateSuccess === product.id ? (
-        <span className="text-green-500">Updated</span>
+        <span className="text-green-500 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        Updated
+        </span>
     ) : (
         'Update'
     )}
@@ -2828,9 +2950,11 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     {!stockLoading && !stockError && filteredStockData.length > 0 && (
     <div className="space-y-4">
     {/* Desktop Header - Hidden on mobile */}
-    <div className={`hidden md:grid grid-cols-4 gap-4 p-4 rounded-lg font-semibold ${theme.gradientOverlay} ${theme.border} border`}>
+    <div className={`hidden md:grid grid-cols-6 gap-4 p-4 rounded-lg font-semibold ${theme.gradientOverlay} ${theme.border} border`}>
     <div className={`${theme.text}`}>Product Name</div>
     <div className={`${theme.text}`}>Category</div>
+    <div className={`${theme.text}`}>Selling Price</div>
+    <div className={`${theme.text}`}>Profit/Unit</div>
     <div className={`${theme.text}`}>Stock Count</div>
     <div className={`${theme.text}`}>Status</div>
     </div>
@@ -2850,6 +2974,18 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     <span className={`text-sm ${theme.textSecondary}`}>Category:</span>
     <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
     {product.category}
+    </span>
+    </div>
+    <div className="flex items-center justify-between">
+    <span className={`text-sm ${theme.textSecondary}`}>Selling Price:</span>
+    <span className={`font-semibold ${theme.text}`}>
+    ₹{product.selling_price}
+    </span>
+    </div>
+    <div className="flex items-center justify-between">
+    <span className={`text-sm ${theme.textSecondary}`}>Profit per Unit:</span>
+    <span className={`font-semibold text-green-600 dark:text-green-400`}>
+    ₹{product.profit_per_unit}
     </span>
     </div>
     <div className="flex items-center justify-between">
@@ -2883,7 +3019,7 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     </div>
 
     {/* Desktop Layout - Grid */}
-    <div className="hidden md:grid grid-cols-4 gap-4 p-4">
+    <div className="hidden md:grid grid-cols-6 gap-4 p-4">
     <div className={`font-medium ${theme.text}`}>
     {product.name}
     </div>
@@ -2891,6 +3027,12 @@ import CouponManagement from '../components/CouponManagement';    // ===========
     <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
     {product.category}
     </span>
+    </div>
+    <div className={`font-semibold ${theme.text}`}>
+    ₹{product.selling_price}
+    </div>
+    <div className={`font-semibold text-green-600 dark:text-green-400`}>
+    ₹{product.profit_per_unit}
     </div>
     <div className={`font-semibold text-lg ${theme.text}`}>
     {product.stock}

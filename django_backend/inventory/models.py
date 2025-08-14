@@ -4,11 +4,14 @@ from django.utils import timezone
 
 class Product(models.Model):
     """
-    Product model - Stores inventory items with stock tracking
+    Product model - Stores inventory items with stock tracking and profit calculations
     """
     name = models.CharField(max_length=100)
     category = models.CharField(max_length=50)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2)  # Renamed from 'price'
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # New field
+    profit_per_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Auto-calculated
+    profit_margin = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)  # Auto-calculated percentage
     stock = models.IntegerField(default=0)  # Number of items in stock
     in_stock = models.BooleanField(default=True)  # Automatically managed
     demand_level = models.CharField(
@@ -23,6 +26,18 @@ class Product(models.Model):
     def save(self, *args, **kwargs):
         # Automatically set in_stock based on stock quantity
         self.in_stock = self.stock > 0
+        
+        # Auto-calculate profit fields
+        if self.selling_price and self.cost_price:
+            self.profit_per_unit = self.selling_price - self.cost_price
+            if self.selling_price > 0:
+                self.profit_margin = (self.profit_per_unit / self.selling_price) * 100
+            else:
+                self.profit_margin = 0.00
+        else:
+            self.profit_per_unit = 0.00
+            self.profit_margin = 0.00
+            
         super().save(*args, **kwargs)
 
 
