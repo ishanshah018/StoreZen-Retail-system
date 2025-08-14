@@ -19,7 +19,7 @@ import {
 import {
     Package, BarChart, Megaphone, Users, Percent, MessageCircle,
     Heart, Plus, Minus, Send, TrendingUp, AlertTriangle, Settings,
-    Calendar, Clock, Store, ArrowLeft, CheckCircle, XCircle,
+    Store, ArrowLeft, CheckCircle, XCircle,
 } from "lucide-react";
 
 // Utilities and API
@@ -102,7 +102,6 @@ class Trie {
     const [showAddProduct, setShowAddProduct] = useState(false);
     const [showUpdateStock, setShowUpdateStock] = useState(false);
     const [showRemoveProduct, setShowRemoveProduct] = useState(false);
-    const [showReportOptions, setShowReportOptions] = useState(false);
     const [showOutOfStockSettings, setShowOutOfStockSettings] = useState(false);
     const [showStoreSettings, setShowStoreSettings] = useState(false);
     const [showThemeSettings, setShowThemeSettings] = useState(false);
@@ -120,6 +119,13 @@ class Trie {
     const [filteredStockData, setFilteredStockData] = useState([]); // Filtered products
     const [updateStockData, setUpdateStockData] = useState([]);   // Update form data
     const [productToRemove, setProductToRemove] = useState(null); // Product to delete
+    const [totalCustomers, setTotalCustomers] = useState(0);      // Total registered customers
+    const [systemHealth, setSystemHealth] = useState({           // Real system health data
+        uptime: { percentage: '99.9', formatted: 'Loading...' },
+        responseTime: { current: '1.2' },
+        memory: { used: 0, total: 0 },
+        status: 'loading'
+    });
 
     // Loading and error states
     const [stockLoading, setStockLoading] = useState(false);
@@ -437,6 +443,12 @@ class Trie {
     // Load analytics data for footer display
     generateFeedbackAnalytics();
 
+    // Load total customers count for platform overview
+    fetchTotalCustomers();
+
+    // Load REAL system health data
+    fetchSystemHealth();
+
     // Load customer dashboard clicks count from localStorage
     const savedClicks = localStorage.getItem('customerDashboardClicks');
     if (savedClicks) {
@@ -446,6 +458,16 @@ class Trie {
     // Initialize store theme from manager profile when component mounts
     const savedStoreTheme = localStorage.getItem('managerStoreTheme') || 'dark';
     setStoreTheme(savedStoreTheme);
+
+    // Set up real-time system health monitoring (refresh every 30 seconds)
+    const healthInterval = setInterval(() => {
+        fetchSystemHealth();
+    }, 30000); // 30 seconds
+
+    // Cleanup interval on component unmount
+    return () => {
+        clearInterval(healthInterval);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -891,6 +913,8 @@ class Trie {
         const result = await response.json();
         if (result.success) {
         setCustomerData(result.data);
+        // Also set total customers count
+        setTotalCustomers(result.data.length);
         } else {
         throw new Error(result.message || 'Failed to fetch customer data');
         }
@@ -900,6 +924,78 @@ class Trie {
     } finally {
         setCustomerLoading(false);
     }
+    };
+
+    // Fetch total customers count for platform overview
+    const fetchTotalCustomers = async () => {
+        try {
+            const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.customers.all}`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch customer count');
+            }
+            const result = await response.json();
+            if (result.success) {
+                setTotalCustomers(result.data.length);
+            }
+        } catch (error) {
+            console.error('Error fetching customer count:', error);
+            // Keep previous count or default to 0
+        }
+    };
+
+    // Fetch REAL system health data from server
+    const fetchSystemHealth = async () => {
+        console.log('🔄 Fetching system health...');
+        
+        try {
+            const url = `${API_CONFIG.NODE_SERVER}/api/system/health`;
+            console.log('📡 Requesting:', url);
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            console.log('📊 Response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log('✅ Health data received:', result);
+            
+            if (result.success && result.data) {
+                setSystemHealth({
+                    ...result.data,
+                    status: 'healthy'
+                });
+                console.log('💚 System health updated successfully');
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (error) {
+            console.error('❌ System health fetch error:', error);
+            setSystemHealth({
+                uptime: { 
+                    percentage: 'ERROR', 
+                    formatted: 'Connection Failed' 
+                },
+                responseTime: { 
+                    current: 'N/A' 
+                },
+                memory: { 
+                    used: 0, 
+                    total: 0 
+                },
+                process: {
+                    pid: null
+                },
+                status: 'error'
+            });
+        }
     };
 
     // Function to export customer data
@@ -1739,9 +1835,10 @@ class Trie {
     };
 
     const handleReportClick = (action) => {
-    if (action === "View Report") {
-    setShowReportOptions(true);
-    }
+        if (action === "View Report") {
+            // Directly show analytics/sales data instead of modal
+            console.log("Sales report requested - implement analytics view");
+        }
     };
 
     // =============================================================================
@@ -3182,46 +3279,6 @@ class Trie {
     );
     };
 
-    const renderReportModal = () => {
-    if (!showReportOptions) return null;
-
-    return (
-        <GlassmorphismModal
-        isOpen={showReportOptions}
-        onClose={() => setShowReportOptions(false)}
-        title="Select Report Type"
-        theme={theme}
-        size="sm"
-        >
-        <div className="space-y-4">
-            <ActionCard
-            icon={Clock}
-            title="Today's Report"
-            description="View today's sales and inventory"
-            onClick={() => setShowReportOptions(false)}
-            variant="primary"
-            theme={ThemeCollections.analytics.emerald}
-            />
-            <ActionCard
-            icon={Calendar}
-            title="Monthly Report"
-            description="Comprehensive monthly analysis"
-            onClick={() => setShowReportOptions(false)}
-            variant="secondary"
-            theme={ThemeCollections.analytics.purple}
-            />
-            <ActionCard
-            icon={BarChart}
-            title="Yearly Report"
-            description="Annual performance overview"
-            onClick={() => setShowReportOptions(false)}
-            variant="success"
-            theme={ThemeCollections.finance.amber}
-            />
-        </div>
-        </GlassmorphismModal>
-    );
-    };
 
     const renderStoreSettingsModal = () => {
     if (!showStoreSettings) return null;
@@ -4120,10 +4177,14 @@ class Trie {
     <h2 className={`text-3xl font-bold text-center mb-12 ${theme.text}`}>
     Platform Overview
     </h2>
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-8 text-center">
     <div className="space-y-2">
     <div className={`text-4xl font-bold ${theme.accent}`}>{stockData.length}</div>
     <div className={`font-medium ${theme.textSecondary}`}>Active Products</div>
+    </div>
+    <div className="space-y-2">
+    <div className="text-4xl font-bold text-green-600">{totalCustomers}</div>
+    <div className={`font-medium ${theme.textSecondary}`}>Total Customers</div>
     </div>
     <div className="space-y-2">
     <div className="text-4xl font-bold text-blue-600">{customerDashboardClicks}</div>
@@ -4144,21 +4205,50 @@ class Trie {
 
     {/* System Health */}
     <div className={`mt-12 rounded-xl p-8 shadow-lg border backdrop-blur-sm ${theme.cardBg} ${theme.border}`}>
-    <h3 className={`text-2xl font-bold mb-8 text-center ${theme.accent}`}>
-    System Health Monitor
-    </h3>
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+    <div className="flex items-center justify-between mb-8">
+        <h3 className={`text-2xl font-bold ${theme.accent}`}>
+        System Health Monitor
+        </h3>
+        <button
+        onClick={() => {
+            console.log('Manual health check requested');
+            fetchSystemHealth();
+        }}
+        className={`px-4 py-2 text-sm rounded-lg ${theme.cardBg} ${theme.border} border hover:${theme.hoverBg} transition-colors`}
+        >
+        🔄 Refresh
+        </button>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
     <div className={`space-y-2 p-4 rounded-lg shadow-sm backdrop-blur-sm ${theme.cardBg} ${theme.border} border`}>
-    <div className="text-3xl font-bold text-green-600">99.9%</div>
+    <div className={`text-3xl font-bold ${
+        systemHealth.status === 'healthy' ? 'text-green-600' :
+        systemHealth.status === 'error' ? 'text-red-600' : 'text-yellow-600'
+    }`}>
+        {systemHealth.uptime?.percentage || 'Loading'}%
+    </div>
     <div className={`font-medium ${theme.textSecondary}`}>System Uptime</div>
+    <div className={`text-xs ${theme.textSecondary} mt-1`}>
+        {systemHealth.uptime?.formatted || 'Loading...'}
+    </div>
+    <div className={`text-xs ${theme.textSecondary}`}>
+        Status: {systemHealth.status}
+    </div>
     </div>
     <div className={`space-y-2 p-4 rounded-lg shadow-sm backdrop-blur-sm ${theme.cardBg} ${theme.border} border`}>
-    <div className="text-3xl font-bold text-blue-600">1.2s</div>
+    <div className={`text-3xl font-bold ${
+        parseFloat(systemHealth.responseTime?.current || 0) < 1.0 ? 'text-green-600' :
+        parseFloat(systemHealth.responseTime?.current || 0) < 2.0 ? 'text-yellow-600' : 'text-red-600'
+    }`}>
+        {systemHealth.responseTime?.current || '0.000'}s
+    </div>
     <div className={`font-medium ${theme.textSecondary}`}>Response Time</div>
+    <div className={`text-xs ${theme.textSecondary} mt-1`}>
+        Memory: {systemHealth.memory?.used || 0}/{systemHealth.memory?.total || 0}MB
     </div>
-    <div className={`space-y-2 p-4 rounded-lg shadow-sm backdrop-blur-sm ${theme.cardBg} ${theme.border} border`}>
-    <div className={`text-3xl font-bold ${theme.accent}`}>AI</div>
-    <div className={`font-medium ${theme.textSecondary}`}>Powered Analytics</div>
+    <div className={`text-xs ${theme.textSecondary}`}>
+        PID: {systemHealth.process?.pid || 'N/A'}
+    </div>
     </div>
     </div>
     </div>
@@ -4172,7 +4262,6 @@ class Trie {
     {renderClearAllProductsModal()}
     {renderStockViewModal()}
     {renderOutOfStockModal()}
-    {renderReportModal()}
     {renderStoreSettingsModal()}
     {renderThemeSettingsModal()}
     {renderProfileSettingsModal()}

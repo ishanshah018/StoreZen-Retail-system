@@ -107,7 +107,7 @@ const billSchema = new mongoose.Schema({
 // Index for better performance
 billSchema.index({ customerId: 1 });
 billSchema.index({ billDate: -1 });
-billSchema.index({ billId: 1 });
+// billId index is already created by unique: true, so no need to duplicate
 
 const Bill = mongoose.model('Bill', billSchema);
 module.exports = Bill;
