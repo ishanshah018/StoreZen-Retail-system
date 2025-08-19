@@ -5422,303 +5422,670 @@ class Trie {
     </div>
     )}
 
-    {/* Sales Report Modal */}
+    {/* Sales Report Modal - Professional Theme-Compatible Dashboard */}
     {showSalesReportModal && (
-    <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-        <div className={`${theme.card} rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700`}>
-        {/* Header */}
-        <div className={`${theme.accent} px-6 py-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-600`}>
+    <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] p-4 ${theme.bg}/80`}>
+        <div className={`${theme.cardBg} rounded-2xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col ${theme.border} border backdrop-blur-sm`}>
+        
+        {/* Professional Theme-Compatible Header */}
+        <div className={`${theme.button} text-white px-8 py-6 flex items-center justify-between`}>
+            <div className="flex items-center space-x-4">
+            <div className="bg-white/20 rounded-full p-3">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+            </div>
             <div>
-            <h2 className={`text-2xl font-bold ${theme.text}`}>📊 Sales Analytics Dashboard</h2>
-            <p className={`text-sm ${theme.textSecondary} mt-1`}>Comprehensive revenue and performance insights</p>
+                <h2 className="text-2xl font-bold">Sales Analytics Dashboard</h2>
+                <p className="text-white/80">Comprehensive business insights and performance metrics</p>
+            </div>
             </div>
             <button
             onClick={closeSalesReportModal}
-            className={`${theme.buttonSecondary} px-4 py-2 rounded-lg transition-all hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-300 text-gray-600 dark:text-gray-400`}
+            className="bg-white/20 hover:bg-white/30 rounded-full p-2 transition-all duration-200 hover:rotate-90"
             >
-            ✖️ Close
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
             </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {/* Theme-Compatible Content Area */}
+        <div className={`flex-1 overflow-y-auto ${theme.bg}`}>
             {salesReportLoading ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex items-center justify-center h-96">
                 <div className="text-center">
-                <div className="animate-spin text-4xl mb-4">📊</div>
-                <p className={`${theme.textSecondary}`}>Loading comprehensive sales data...</p>
+                <div className="relative">
+                    <div className={`w-16 h-16 border-4 ${theme.border} border-t-current rounded-full animate-spin mx-auto mb-4 ${theme.accent}`}></div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                    <svg className={`w-6 h-6 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    </div>
+                </div>
+                <h3 className={`text-lg font-semibold ${theme.text} mb-2`}>Analyzing Sales Data</h3>
+                <p className={`text-sm ${theme.textSecondary}`}>Please wait while we process your business metrics...</p>
                 </div>
             </div>
             ) : (
-            <>
-                {/* Period Selector */}
-                <div className={`${theme.accent} rounded-lg p-4 mb-6`}>
-                <h3 className={`text-lg font-semibold mb-3 ${theme.text}`}>📅 Report Period</h3>
-                <div className="flex flex-wrap gap-2 mb-4">
+            <div className="p-8 space-y-8">
+                {/* Theme-Compatible Period Selector */}
+                <div className={`${theme.cardBg} rounded-xl ${theme.border} border overflow-hidden backdrop-blur-sm`}>
+                <div className={`${theme.gradientOverlay} px-6 py-4 ${theme.border} border-b`}>
+                    <h3 className={`text-lg font-semibold ${theme.text} flex items-center`}>
+                    <svg className={`w-5 h-5 ${theme.accent} mr-2`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    Report Period
+                    </h3>
+                </div>
+                <div className="p-6">
+                    <div className="flex flex-wrap gap-3 mb-6">
                     {[
-                    { value: 'today', label: 'Today' },
-                    { value: 'last7days', label: 'Last 7 Days' },
-                    { value: 'thisMonth', label: 'This Month' },
-                    { value: 'lastMonth', label: 'Last Month' },
-                    { value: 'custom', label: 'Custom Range' }
+                        { value: 'today', label: 'Today', icon: '📅' },
+                        { value: 'last7days', label: 'Last 7 Days', icon: '📊' },
+                        { value: 'thisMonth', label: 'This Month', icon: '📈' },
+                        { value: 'lastMonth', label: 'Last Month', icon: '📉' },
+                        { value: 'custom', label: 'Custom Range', icon: '🗓️' }
                     ].map(period => (
-                    <button
+                        <button
                         key={period.value}
                         onClick={() => handleSalesReportPeriodChange(period.value)}
-                        className={`px-4 py-2 rounded-lg transition-colors ${
-                        salesReportPeriod === period.value
-                            ? 'bg-blue-500 text-white shadow-lg'
-                            : `${theme.button} ${theme.text} hover:bg-blue-100 dark:hover:bg-blue-900`
+                        className={`flex items-center px-4 py-3 rounded-lg font-medium transition-all duration-200 ${
+                            salesReportPeriod === period.value
+                            ? `${theme.button} text-white shadow-lg transform scale-105`
+                            : `${theme.cardBg} ${theme.text} ${theme.hover} ${theme.border} border`
                         }`}
-                    >
+                        >
+                        <span className="mr-2">{period.icon}</span>
                         {period.label}
-                    </button>
+                        </button>
                     ))}
+                    </div>
+
+                    {/* Theme-Compatible Custom Date Range */}
+                    {salesReportPeriod === 'custom' && (
+                    <div className={`${theme.gradientOverlay} rounded-lg p-4 ${theme.border} border`}>
+                        <div className="flex flex-wrap gap-4 items-end">
+                        <div className="flex-1 min-w-48">
+                            <label className={`block text-sm font-semibold ${theme.text} mb-2`}>Start Date</label>
+                            <input
+                            type="date"
+                            value={salesReportDateFrom}
+                            onChange={(e) => setSalesReportDateFrom(e.target.value)}
+                            className={`w-full px-4 py-3 rounded-lg ${theme.input} ${theme.border} border focus:ring-2 focus:ring-current focus:border-transparent transition-colors`}
+                            />
+                        </div>
+                        <div className="flex-1 min-w-48">
+                            <label className={`block text-sm font-semibold ${theme.text} mb-2`}>End Date</label>
+                            <input
+                            type="date"
+                            value={salesReportDateTo}
+                            onChange={(e) => setSalesReportDateTo(e.target.value)}
+                            className={`w-full px-4 py-3 rounded-lg ${theme.input} ${theme.border} border focus:ring-2 focus:ring-current focus:border-transparent transition-colors`}
+                            />
+                        </div>
+                        <button
+                            onClick={handleCustomDateRangeSubmit}
+                            className={`${theme.button} text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg flex items-center hover:shadow-xl`}
+                        >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            Apply Range
+                        </button>
+                        </div>
+                    </div>
+                    )}
+                </div>
                 </div>
 
-                {/* Custom Date Range */}
-                {salesReportPeriod === 'custom' && (
-                    <div className="flex flex-wrap gap-4 items-end">
-                    <div>
-                        <label className={`block text-sm font-medium ${theme.text} mb-1`}>From Date</label>
-                        <input
-                        type="date"
-                        value={salesReportDateFrom}
-                        onChange={(e) => setSalesReportDateFrom(e.target.value)}
-                        className={`${theme.input} px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500`}
-                        />
-                    </div>
-                    <div>
-                        <label className={`block text-sm font-medium ${theme.text} mb-1`}>To Date</label>
-                        <input
-                        type="date"
-                        value={salesReportDateTo}
-                        onChange={(e) => setSalesReportDateTo(e.target.value)}
-                        className={`${theme.input} px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500`}
-                        />
-                    </div>
-                    <button
-                        onClick={handleCustomDateRangeSubmit}
-                        className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors shadow-lg"
-                    >
-                        Apply Range
-                    </button>
-                    </div>
-                )}
-                </div>
-
-                {/* Key Statistics */}
+                {/* Theme-Compatible Key Performance Indicators */}
                 {salesReportData && (
                 <>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
-                        <div className="text-3xl mb-2">💰</div>
-                        <div className={`text-2xl font-bold ${theme.text}`}>₹{salesReportData.totalSales}</div>
-                        <div className={`text-sm ${theme.textSecondary}`}>Total Sales</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {/* Total Sales Card */}
+                    <div className={`${theme.button} rounded-xl p-6 text-white shadow-lg ${theme.hover} transition-all backdrop-blur-sm`}>
+                        <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-white/80 text-sm font-medium">Total Revenue</p>
+                            <p className="text-3xl font-bold">₹{salesReportData.totalSales?.toLocaleString()}</p>
+                            <p className="text-white/80 text-xs mt-1">
+                            {salesReportData.totalNetProfit > 0 && (
+                                <span className="flex items-center">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                                +{((salesReportData.totalNetProfit / salesReportData.totalSales) * 100).toFixed(1)}% profit
+                                </span>
+                            )}
+                            </p>
+                        </div>
+                        <div className="bg-white/20 rounded-full p-3">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                            </svg>
+                        </div>
+                        </div>
                     </div>
-                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
-                        <div className="text-3xl mb-2">🛒</div>
-                        <div className={`text-2xl font-bold ${theme.text}`}>{salesReportData.totalOrders}</div>
-                        <div className={`text-sm ${theme.textSecondary}`}>Total Orders</div>
+
+                    {/* Total Orders Card */}
+                    <div className={`${theme.cardBg} rounded-xl p-6 shadow-lg ${theme.hover} transition-all ${theme.border} border backdrop-blur-sm`}>
+                        <div className="flex items-center justify-between">
+                        <div>
+                            <p className={`${theme.textSecondary} text-sm font-medium`}>Total Orders</p>
+                            <p className={`text-3xl font-bold ${theme.text}`}>{salesReportData.totalOrders}</p>
+                            <p className={`${theme.textSecondary} text-xs mt-1`}>
+                            Avg. ₹{salesReportData.averageOrderValue} per order
+                            </p>
+                        </div>
+                        <div className={`${theme.gradientOverlay} rounded-full p-3`}>
+                            <svg className={`w-8 h-8 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            </svg>
+                        </div>
+                        </div>
                     </div>
-                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
-                        <div className="text-3xl mb-2">👥</div>
-                        <div className={`text-2xl font-bold ${theme.text}`}>{salesReportData.totalCustomers}</div>
-                        <div className={`text-sm ${theme.textSecondary}`}>Customers</div>
+
+                    {/* Total Customers Card */}
+                    <div className={`${theme.cardBg} rounded-xl p-6 shadow-lg ${theme.hover} transition-all ${theme.border} border backdrop-blur-sm`}>
+                        <div className="flex items-center justify-between">
+                        <div>
+                            <p className={`${theme.textSecondary} text-sm font-medium`}>Unique Customers</p>
+                            <p className={`text-3xl font-bold ${theme.text}`}>{salesReportData.totalCustomers}</p>
+                            <p className={`${theme.textSecondary} text-xs mt-1`}>
+                            {salesReportData.totalCustomers > 0 ? (salesReportData.totalOrders / salesReportData.totalCustomers).toFixed(1) : 0} orders/customer
+                            </p>
+                        </div>
+                        <div className={`${theme.gradientOverlay} rounded-full p-3`}>
+                            <svg className={`w-8 h-8 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                        </div>
+                        </div>
                     </div>
-                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
-                        <div className="text-3xl mb-2">📈</div>
-                        <div className={`text-2xl font-bold ${theme.text}`}>₹{salesReportData.averageOrderValue}</div>
-                        <div className={`text-sm ${theme.textSecondary}`}>Avg. Order</div>
+
+                    {/* Net Profit Card */}
+                    <div className={`${theme.cardBg} rounded-xl p-6 shadow-lg ${theme.hover} transition-all ${theme.border} border backdrop-blur-sm`}>
+                        <div className="flex items-center justify-between">
+                        <div>
+                            <p className={`${theme.textSecondary} text-sm font-medium`}>Net Profit</p>
+                            <p className={`text-3xl font-bold ${theme.text}`}>₹{salesReportData.totalNetProfit?.toLocaleString()}</p>
+                            <p className={`${theme.textSecondary} text-xs mt-1`}>
+                            {salesReportData.totalSales > 0 ? ((salesReportData.totalNetProfit / salesReportData.totalSales) * 100).toFixed(1) : 0}% margin
+                            </p>
+                        </div>
+                        <div className={`${theme.gradientOverlay} rounded-full p-3`}>
+                            <svg className={`w-8 h-8 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                        </div>
                     </div>
                     </div>
 
-                    {/* Sales Chart */}
+                    {/* Theme-Compatible Professional Sales Chart */}
                     {salesReportData.chartData && salesReportData.chartData.length > 0 && (
-                    <div className={`${theme.accent} rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-600`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>📈 Sales Trend</h3>
-                        <div className="h-64 flex items-end justify-between space-x-2">
-                        {salesReportData.chartData.map((data, index) => {
-                            const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
-                            const height = (data.sales / maxSales) * 100;
-                            return (
-                            <div key={index} className="flex-1 flex flex-col items-center">
-                                <div
-                                className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-500 hover:from-blue-600 hover:to-blue-500 flex items-end justify-center relative group cursor-pointer"
-                                style={{ height: `${Math.max(height, 5)}%`, minHeight: '20px' }}
-                                >
-                                <span className="text-white text-xs font-semibold p-1">₹{data.sales}</span>
-                                </div>
-                                <div className={`text-xs ${theme.textSecondary} mt-2 text-center transform -rotate-45 origin-center`}>
-                                {new Date(data.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
-                                </div>
+                    <div className={`${theme.cardBg} rounded-xl ${theme.border} border overflow-hidden shadow-lg mb-8 backdrop-blur-sm`}>
+                        <div className={`${theme.gradientOverlay} px-6 py-4 ${theme.border} border-b`}>
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                            <div className={`${theme.gradientOverlay} rounded-full p-2 mr-3`}>
+                                <svg className={`w-5 h-5 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
                             </div>
+                            <div>
+                                <h3 className={`text-lg font-semibold ${theme.text}`}>Sales Trend Analysis</h3>
+                                <p className={`text-sm ${theme.textSecondary}`}>Daily revenue performance overview</p>
+                            </div>
+                            </div>
+                            <div className={`text-sm ${theme.textSecondary}`}>
+                            Total: ₹{salesReportData.chartData.reduce((sum, item) => sum + item.sales, 0).toLocaleString()}
+                            </div>
+                        </div>
+                        </div>
+                        <div className="p-6">
+                        <div className="h-80 flex items-end justify-between space-x-2 bg-gradient-to-t from-gray-50 to-transparent dark:from-gray-800 rounded-lg p-4">
+                            {salesReportData.chartData.map((data, index) => {
+                            const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
+                            const height = maxSales > 0 ? (data.sales / maxSales) * 100 : 0;
+                            return (
+                                <div key={index} className="flex-1 flex flex-col items-center group cursor-pointer">
+                                <div className="relative w-full flex flex-col items-center">
+                                    {/* Tooltip */}
+                                    <div className="absolute -top-12 bg-gray-800 text-white text-xs rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
+                                    ₹{data.sales.toLocaleString()}
+                                    </div>
+                                    {/* Bar */}
+                                    <div
+                                    className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-700 hover:from-blue-600 hover:to-blue-500 shadow-lg hover:shadow-xl relative"
+                                    style={{ height: `${Math.max(height, 3)}%`, minHeight: '12px' }}
+                                    >
+                                    {/* Value Label */}
+                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        ₹{data.sales}
+                                    </div>
+                                    </div>
+                                </div>
+                                {/* Date Label */}
+                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center transform group-hover:scale-110 transition-transform">
+                                    {new Date(data.date).toLocaleDateString('en-IN', { 
+                                    month: 'short', 
+                                    day: 'numeric',
+                                    ...(salesReportData.chartData.length <= 7 && { weekday: 'short' })
+                                    })}
+                                </div>
+                                </div>
                             );
-                        })}
+                            })}
+                        </div>
                         </div>
                     </div>
                     )}
 
-                    {/* Two Column Layout for detailed stats */}
-                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    {/* Analytics Grid - Professional Layout */}
+                    <div className="grid lg:grid-cols-2 gap-8 mb-8">
                     
-                    {/* Category Wise Sales */}
-                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🏷️ Category Performance</h3>
-                        <div className="space-y-3">
-                        {salesReportData.categoriesArray && salesReportData.categoriesArray.slice(0, 8).map((category, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <div className="flex-1">
-                                <div className={`font-medium ${theme.text}`}>{category.name}</div>
-                                <div className={`text-sm ${theme.textSecondary}`}>
-                                {category.quantity} items • ₹{category.profit} profit
+                    {/* Category Performance */}
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center">
+                            <div className="bg-green-100 dark:bg-green-900 rounded-full p-2 mr-3">
+                            <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                            </div>
+                            <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Category Performance</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Sales breakdown by product categories</p>
+                            </div>
+                        </div>
+                        </div>
+                        <div className="p-6">
+                        <div className="space-y-4">
+                            {salesReportData.categoriesArray && salesReportData.categoriesArray.slice(0, 6).map((category, index) => {
+                            const maxSales = Math.max(...salesReportData.categoriesArray.map(c => c.sales));
+                            const percentage = maxSales > 0 ? (category.sales / maxSales) * 100 : 0;
+                            const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-indigo-500'];
+                            return (
+                                <div key={index} className="group">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center">
+                                    <div className={`w-3 h-3 rounded-full ${colors[index % colors.length]} mr-3`}></div>
+                                    <div>
+                                        <p className="font-medium text-gray-900 dark:text-white">{category.name}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                        {category.quantity} items • ₹{category.profit?.toLocaleString()} profit
+                                        </p>
+                                    </div>
+                                    </div>
+                                    <div className="text-right">
+                                    <p className="font-bold text-lg text-gray-900 dark:text-white">₹{category.sales?.toLocaleString()}</p>
+                                    <p className="text-sm text-gray-500">{((category.sales / salesReportData.totalSales) * 100).toFixed(1)}%</p>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className={`font-bold ${theme.text} text-green-600 dark:text-green-400`}>₹{category.sales}</div>
-                            </div>
-                        ))}
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
+                                    <div 
+                                    className={`h-2 rounded-full ${colors[index % colors.length]} transition-all duration-1000 group-hover:shadow-lg`}
+                                    style={{ width: `${percentage}%` }}
+                                    ></div>
+                                </div>
+                                </div>
+                            );
+                            })}
+                        </div>
                         </div>
                     </div>
 
                     {/* Top Products */}
-                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🔥 Top Products</h3>
-                        <div className="space-y-3">
-                        {salesReportData.topProducts && salesReportData.topProducts.slice(0, 8).map((product, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
-                            <div className="flex-1">
-                                <div className={`font-medium ${theme.text} truncate`}>{product.name}</div>
-                                <div className={`text-sm ${theme.textSecondary}`}>
-                                {product.totalQuantity} sold • ₹{Math.round(product.totalProfit)} profit
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center">
+                            <div className="bg-red-100 dark:bg-red-900 rounded-full p-2 mr-3">
+                            <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            </div>
+                            <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Best Selling Products</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Top performing items by revenue</p>
+                            </div>
+                        </div>
+                        </div>
+                        <div className="p-6">
+                        <div className="space-y-4">
+                            {salesReportData.topProducts && salesReportData.topProducts.slice(0, 6).map((product, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                                <div className="flex items-center flex-1">
+                                <div className="bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm mr-4">
+                                    {index + 1}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors line-clamp-1">
+                                    {product.name}
+                                    </p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {product.totalQuantity} sold • ₹{Math.round(product.totalProfit)?.toLocaleString()} profit
+                                    </p>
+                                </div>
+                                </div>
+                                <div className="text-right">
+                                <p className="font-bold text-lg text-gray-900 dark:text-white">₹{Math.round(product.totalSales)?.toLocaleString()}</p>
+                                <div className="flex items-center text-sm text-green-600">
+                                    <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                    </svg>
+                                    {((product.totalSales / salesReportData.totalSales) * 100).toFixed(1)}%
+                                </div>
                                 </div>
                             </div>
-                            <div className={`font-bold ${theme.text} text-green-600 dark:text-green-400`}>₹{Math.round(product.totalSales)}</div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                         </div>
                     </div>
                     
                     </div>
 
-                    {/* Bottom Row - Discounts and Payment Methods */}
-                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    {/* Financial Analysis Row */}
+                    <div className="grid lg:grid-cols-2 gap-8 mb-8">
                     
                     {/* Discount Analysis */}
-                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🎫 Discount Analysis</h3>
-                        <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <span className={theme.text}>Total Discounts Given</span>
-                            <span className={`font-bold ${theme.text} text-red-600 dark:text-red-400`}>₹{salesReportData.totalDiscounts}</span>
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center">
+                            <div className="bg-yellow-100 dark:bg-yellow-900 rounded-full p-2 mr-3">
+                            <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z"/>
+                            </svg>
+                            </div>
+                            <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Discount Analysis</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Customer savings and promotional impact</p>
+                            </div>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className={`${theme.textSecondary} ml-4`}>• Coupon Discounts</span>
-                            <span className={theme.text}>₹{salesReportData.totalCouponDiscount}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                            <span className={`${theme.textSecondary} ml-4`}>• SmartCoins Used</span>
-                            <span className={theme.text}>₹{salesReportData.totalSmartCoinsDiscount}</span>
-                        </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
-                            <span className={theme.text}>Discount Percentage</span>
-                            <span className={`font-bold ${theme.text} text-orange-600 dark:text-orange-400`}>{salesReportData.discountPercentage}%</span>
+                        <div className="p-6">
+                        <div className="space-y-6">
+                            {/* Total Discounts */}
+                            <div className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg p-4 border border-red-200 dark:border-red-800">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center">
+                                <svg className="w-6 h-6 text-red-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                                </svg>
+                                <span className="font-medium text-gray-900 dark:text-white">Total Discounts Given</span>
+                                </div>
+                                <span className="text-2xl font-bold text-red-600">₹{salesReportData.totalDiscounts?.toLocaleString()}</span>
+                            </div>
+                            </div>
+
+                            {/* Discount Breakdown */}
+                            <div className="space-y-4">
+                            <div className="flex items-center justify-between py-2">
+                                <div className="flex items-center">
+                                <div className="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                <span className="text-gray-700 dark:text-gray-300">Coupon Discounts</span>
+                                </div>
+                                <div className="text-right">
+                                <span className="font-semibold text-gray-900 dark:text-white">₹{salesReportData.totalCouponDiscount?.toLocaleString()}</span>
+                                <div className="text-xs text-gray-500">
+                                    {salesReportData.totalDiscounts > 0 ? ((salesReportData.totalCouponDiscount / salesReportData.totalDiscounts) * 100).toFixed(1) : 0}%
+                                </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between py-2">
+                                <div className="flex items-center">
+                                <div className="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                                <span className="text-gray-700 dark:text-gray-300">SmartCoins Used</span>
+                                </div>
+                                <div className="text-right">
+                                <span className="font-semibold text-gray-900 dark:text-white">₹{salesReportData.totalSmartCoinsDiscount?.toLocaleString()}</span>
+                                <div className="text-xs text-gray-500">
+                                    {salesReportData.totalDiscounts > 0 ? ((salesReportData.totalSmartCoinsDiscount / salesReportData.totalDiscounts) * 100).toFixed(1) : 0}%
+                                </div>
+                                </div>
+                            </div>
+                            </div>
+
+                            {/* Discount Impact */}
+                            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between">
+                                <span className="font-medium text-gray-900 dark:text-white">Overall Discount Rate</span>
+                                <div className="flex items-center">
+                                <span className="text-xl font-bold text-orange-600 mr-2">{salesReportData.discountPercentage}%</span>
+                                <div className="w-16 bg-gray-200 rounded-full h-2">
+                                    <div className="bg-orange-500 h-2 rounded-full" style={{ width: `${Math.min(salesReportData.discountPercentage, 100)}%` }}></div>
+                                </div>
+                                </div>
+                            </div>
+                            </div>
                         </div>
                         </div>
                     </div>
 
                     {/* Payment Methods */}
-                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>💳 Payment Methods</h3>
-                        <div className="space-y-3">
-                        {salesReportData.paymentModes && Object.entries(salesReportData.paymentModes).map(([method, amount]) => {
-                            const percentage = salesReportData.totalSales > 0 ? ((amount / salesReportData.totalSales) * 100).toFixed(1) : 0;
-                            return (
-                            <div key={method} className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                <span className={theme.text}>{method}</span>
-                                <span className={`font-medium ${theme.text}`}>₹{Math.round(amount)} ({percentage}%)</span>
-                                </div>
-                                <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
-                                <div 
-                                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
-                                    style={{ width: `${percentage}%` }}
-                                ></div>
-                                </div>
+                    <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-lg">
+                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center">
+                            <div className="bg-blue-100 dark:bg-blue-900 rounded-full p-2 mr-3">
+                            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                            </svg>
                             </div>
+                            <div>
+                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Methods</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Transaction distribution by payment type</p>
+                            </div>
+                        </div>
+                        </div>
+                        <div className="p-6">
+                        <div className="space-y-6">
+                            {salesReportData.paymentModes && Object.entries(salesReportData.paymentModes).map(([method, amount], index) => {
+                            const percentage = salesReportData.totalSales > 0 ? ((amount / salesReportData.totalSales) * 100) : 0;
+                            const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500'];
+                            const iconMap = {
+                                'Cash': 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1',
+                                'Card': 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
+                                'UPI': 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
+                                'Wallet': 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z'
+                            };
+                            
+                            return (
+                                <div key={method} className="group">
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center">
+                                    <div className={`${colors[index % colors.length]} rounded-full p-2 mr-4`}>
+                                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={iconMap[method] || iconMap['Card']}/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900 dark:text-white">{method}</p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">{percentage.toFixed(1)}% of total sales</p>
+                                    </div>
+                                    </div>
+                                    <div className="text-right">
+                                    <p className="font-bold text-lg text-gray-900 dark:text-white">₹{Math.round(amount)?.toLocaleString()}</p>
+                                    <p className="text-sm text-gray-500">
+                                        {((amount / salesReportData.totalSales) * 100).toFixed(1)}%
+                                    </p>
+                                    </div>
+                                </div>
+                                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 mb-4">
+                                    <div 
+                                    className={`h-3 rounded-full ${colors[index % colors.length]} transition-all duration-1000 group-hover:shadow-lg`}
+                                    style={{ width: `${percentage}%` }}
+                                    ></div>
+                                </div>
+                                </div>
                             );
-                        })}
+                            })}
+                        </div>
                         </div>
                     </div>
                     
                     </div>
 
-                    {/* Profit Summary */}
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border border-green-200 dark:border-green-700 rounded-lg p-6">
-                    <h3 className="text-lg font-semibold mb-4 text-green-800 dark:text-green-200">💹 Profit Summary</h3>
-                    <div className="grid md:grid-cols-3 gap-4 text-center">
-                        <div>
-                        <div className="text-3xl font-bold text-green-600 dark:text-green-400">₹{salesReportData.totalNetProfit}</div>
-                        <div className="text-sm text-green-700 dark:text-green-300">Net Profit</div>
+                    {/* Executive Profit Summary */}
+                    <div className="bg-gradient-to-br from-green-600 via-green-500 to-emerald-500 rounded-2xl p-8 text-white shadow-2xl mb-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center">
+                        <div className="bg-white/20 rounded-full p-3 mr-4">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
                         </div>
                         <div>
-                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                            <h3 className="text-2xl font-bold">Profit Analysis</h3>
+                            <p className="text-green-100">Comprehensive profitability overview</p>
+                        </div>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                        <p className="text-sm text-green-100">Profit Margin</p>
+                        <p className="text-2xl font-bold">
                             {salesReportData.totalSales > 0 ? ((salesReportData.totalNetProfit / salesReportData.totalSales) * 100).toFixed(1) : 0}%
+                        </p>
                         </div>
-                        <div className="text-sm text-blue-700 dark:text-blue-300">Profit Margin</div>
+                    </div>
+
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {/* Net Profit */}
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="bg-white/20 rounded-full p-2">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                            </svg>
+                            </div>
+                            <div className="text-right">
+                            <div className="text-3xl font-bold">₹{salesReportData.totalNetProfit?.toLocaleString()}</div>
+                            <div className="text-green-100 text-sm">Net Profit</div>
+                            </div>
                         </div>
-                        <div>
-                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-                            ₹{salesReportData.totalOrders > 0 ? Math.round(salesReportData.totalNetProfit / salesReportData.totalOrders) : 0}
+                        <div className="text-green-100 text-sm">
+                            Total earnings after all costs and discounts
                         </div>
-                        <div className="text-sm text-purple-700 dark:text-purple-300">Profit per Order</div>
+                        </div>
+
+                        {/* Profit Margin */}
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="bg-white/20 rounded-full p-2">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            </div>
+                            <div className="text-right">
+                            <div className="text-3xl font-bold">
+                                {salesReportData.totalSales > 0 ? ((salesReportData.totalNetProfit / salesReportData.totalSales) * 100).toFixed(1) : 0}%
+                            </div>
+                            <div className="text-green-100 text-sm">Profit Margin</div>
+                            </div>
+                        </div>
+                        <div className="text-green-100 text-sm">
+                            Percentage of revenue retained as profit
+                        </div>
+                        </div>
+
+                        {/* Profit per Order */}
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="bg-white/20 rounded-full p-2">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            </svg>
+                            </div>
+                            <div className="text-right">
+                            <div className="text-3xl font-bold">
+                                ₹{salesReportData.totalOrders > 0 ? Math.round(salesReportData.totalNetProfit / salesReportData.totalOrders)?.toLocaleString() : 0}
+                            </div>
+                            <div className="text-green-100 text-sm">Profit per Order</div>
+                            </div>
+                        </div>
+                        <div className="text-green-100 text-sm">
+                            Average profit earned per transaction
+                        </div>
                         </div>
                     </div>
                     </div>
                 </>
                 )}
 
+                {/* No Data State */}
                 {!salesReportData && !salesReportLoading && (
-                <div className="text-center py-12">
-                    <div className="text-6xl mb-4">📊</div>
-                    <h3 className={`text-xl font-semibold mb-2 ${theme.text}`}>No Sales Data</h3>
-                    <p className={`${theme.textSecondary} mb-4`}>No sales found for the selected period</p>
+                <div className="text-center py-16">
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
+                    <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    </div>
+                    <h3 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">No Sales Data Available</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                    No sales records found for the selected time period. Try adjusting your date range or check back after some transactions are made.
+                    </p>
                     <button
                     onClick={() => fetchSalesReport()}
-                    className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors shadow-lg"
+                    className="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors shadow-lg hover:shadow-xl"
                     >
-                    🔄 Refresh Data
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Refresh Data
                     </button>
                 </div>
                 )}
-            </>
+            </div>
             )}
         </div>
 
-        {/* Footer */}
-        <div className={`${theme.accent} px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-600`}>
-            <div className={`text-sm ${theme.textSecondary}`}>
+        {/* Theme-Compatible Professional Footer */}
+        <div className={`${theme.gradientOverlay} px-8 py-6 ${theme.border} border-t flex items-center justify-between backdrop-blur-sm`}>
+            <div className={`flex items-center text-sm ${theme.textSecondary}`}>
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
             {salesReportData && (
-                <>Last updated: {new Date().toLocaleString('en-IN')}</>
+                <span>Last updated: {new Date().toLocaleString('en-IN')}</span>
+            )}
+            {!salesReportData && !salesReportLoading && (
+                <span>Ready to load sales data</span>
             )}
             </div>
-            <div className="space-x-3">
+            <div className="flex items-center space-x-4">
             <button
                 onClick={() => exportSalesReport()}
                 disabled={!salesReportData || salesReportLoading}
-                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 shadow-lg"
+                className={`inline-flex items-center ${theme.button} disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg ${theme.hover}`}
             >
-                📊 Export PDF
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export PDF
             </button>
             <button
                 onClick={() => fetchSalesReport(salesReportPeriod, salesReportDateFrom, salesReportDateTo)}
                 disabled={salesReportLoading}
-                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 shadow-lg"
+                className={`inline-flex items-center ${theme.button} disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg ${theme.hover}`}
             >
-                {salesReportLoading ? '🔄 Loading...' : '🔄 Refresh'}
+                {salesReportLoading ? (
+                <div className="flex items-center">
+                    <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></div>
+                    Loading...
+                </div>
+                ) : (
+                <>
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    Refresh
+                </>
+                )}
             </button>
             <button
                 onClick={closeSalesReportModal}
-                className={`${theme.button} px-4 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-600`}
+                className={`${theme.cardBg} ${theme.hoverBg} ${theme.text} px-4 py-2 rounded-lg font-medium transition-colors ${theme.border} border`}
             >
                 Close
             </button>
