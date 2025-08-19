@@ -9,7 +9,7 @@ import { useTheme, getThemeStyles, ThemeBackground, getThemeEmoji } from "../com
 
 // Icons
 import { 
-ShoppingBag, Settings, Sun, Moon, Store, User, MessageCircle, Star, Receipt, 
+ShoppingBag, Settings, Sun, Moon, Store, User, Star, Receipt, 
 FileText, BarChart, Package, Users, TrendingUp, Shield, Zap, Bot
 } from "lucide-react";
 
@@ -158,11 +158,6 @@ description: "Manage personal information and shopping preferences"
 icon: ShoppingBag,
 title: "Product Browsing",
 description: "Browse extensive catalog with AI-powered filtering"
-},
-{
-icon: MessageCircle,
-title: "AI Chatbot",
-description: "Instant help and personalized recommendations"
 },
 {
 icon: Star,

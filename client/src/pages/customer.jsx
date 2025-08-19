@@ -21,7 +21,7 @@ GradientBadge
 
 // Icons
 import {
-    User,ShoppingCart,MessageCircle,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
+    User,ShoppingCart,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
     Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle,
     CreditCard,Smartphone,Tag,Check,IndianRupee
 } from "lucide-react";
@@ -1105,7 +1105,6 @@ const getFeedbackCategories = (rating) => {
         3: [
             { key: 'product_availability', label: 'Product Availability' },
             { key: 'checkout_process', label: 'Checkout Process' },
-            { key: 'chatbot_issues', label: 'Chatbot Issues' },
             { key: 'others', label: 'Others' }
         ],
         4: [
@@ -1623,13 +1622,6 @@ const shoppingFeatures = [
     description: "Browse our extensive catalog with AI-powered filtering",
     icon: ShoppingCart,
     color: "from-green-500 to-emerald-500",
-    category: "shopping",
-    },
-    {
-    title: "Chatbot Feature",
-    description: "24/7 AI assistant for instant help and recommendations",
-    icon: MessageCircle,
-    color: "from-indigo-500 to-purple-500",
     category: "shopping",
     },
     {
@@ -2773,29 +2765,6 @@ return (
             <div className="absolute bottom-3 left-16 w-1 h-1 bg-pink-200/55 transform rotate-45 animate-bounce" style={{animationDelay: '0.4s'}}></div>
         </div>
         )}
-
-        {/* Animated Bot Effects for Chatbot Feature */}
-        {feature.title === "Chatbot Feature" && (
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
-            {/* Bot emojis floating around */}
-            <div className="absolute top-6 left-4 text-lg animate-bounce" style={{animationDelay: '0s', animationDuration: '2s'}}>🤖</div>
-            <div className="absolute top-12 right-6 text-sm animate-bounce" style={{animationDelay: '0.3s', animationDuration: '2.5s'}}>🤖</div>
-            <div className="absolute bottom-8 left-8 text-base animate-bounce" style={{animationDelay: '0.6s', animationDuration: '2.2s'}}>🤖</div>
-            <div className="absolute bottom-12 right-4 text-xs animate-bounce" style={{animationDelay: '0.9s', animationDuration: '2.8s'}}>🤖</div>
-            <div className="absolute top-1/2 right-8 text-sm animate-bounce" style={{animationDelay: '1.2s', animationDuration: '2.3s'}}>🤖</div>
-            <div className="absolute top-16 left-12 text-xs animate-bounce" style={{animationDelay: '1.5s', animationDuration: '2.6s'}}>🤖</div>
-            
-            {/* Chat bubble effects */}
-            <div className="absolute top-8 left-16 text-xs animate-pulse" style={{animationDelay: '0.2s'}}>💬</div>
-            <div className="absolute bottom-6 right-12 text-sm animate-pulse" style={{animationDelay: '0.8s'}}>💬</div>
-            <div className="absolute top-20 right-16 text-xs animate-pulse" style={{animationDelay: '1.4s'}}>💬</div>
-            
-            {/* Small circuit-like dots */}
-            <div className="absolute top-10 left-6 w-1.5 h-1.5 bg-indigo-400/60 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-            <div className="absolute bottom-10 right-8 w-1 h-1 bg-purple-400/70 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-            <div className="absolute top-14 right-10 w-1.5 h-1.5 bg-blue-400/50 rounded-full animate-pulse" style={{animationDelay: '1.6s'}}></div>
-        </div>
-        )}
     
     <CardHeader className="text-center pb-4 relative">
         {feature.special && (
@@ -2884,11 +2853,6 @@ return (
                 <>
                 <User className="h-4 w-4" />
                 View Profile
-                </>
-            ) : feature.title === "Chatbot Feature" ? (
-                <>
-                <MessageCircle className="h-4 w-4" />
-                Chat Now
                 </>
             ) : feature.title === "Smart Billing" ? (
                 <>

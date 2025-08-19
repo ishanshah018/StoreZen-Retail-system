@@ -639,6 +639,53 @@ const getCustomerBillsForAssistant = async (req, res) => {
     }
 };
 
+/**
+ * Get sales report data for manager analytics
+ * Returns bills within specified date range for comprehensive sales analysis
+ */
+const getSalesReportData = async (req, res) => {
+    try {
+        console.log('📊 Fetching sales report data...');
+        const { startDate, endDate } = req.body;
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({
+                success: false,
+                message: 'Start date and end date are required'
+            });
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+
+        console.log(`📅 Date range: ${start.toDateString()} to ${end.toDateString()}`);
+
+        // Fetch bills within the specified date range
+        const bills = await Bill.find({
+            billDate: {
+                $gte: start,
+                $lte: end
+            }
+        }).sort({ billDate: -1 });
+
+        console.log(`📋 Found ${bills.length} bills in date range`);
+
+        res.status(200).json({
+            success: true,
+            message: `Sales report data fetched successfully for ${bills.length} bills`,
+            data: bills
+        });
+
+    } catch (error) {
+        console.error('❌ Error fetching sales report data:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch sales report data',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getAvailableCoupons,
     validateCoupon,
@@ -647,5 +694,6 @@ module.exports = {
     getBillHistory,
     getBillById,
     findBestCoupon,
-    getCustomerBillsForAssistant
+    getCustomerBillsForAssistant,
+    getSalesReportData
 };

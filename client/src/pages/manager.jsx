@@ -245,6 +245,16 @@ class Trie {
     });
 
     // =============================================================================
+    // SALES REPORT STATES
+    // =============================================================================
+    const [showSalesReportModal, setShowSalesReportModal] = useState(false);
+    const [salesReportData, setSalesReportData] = useState(null);
+    const [salesReportLoading, setSalesReportLoading] = useState(false);
+    const [salesReportPeriod, setSalesReportPeriod] = useState('thisMonth'); // 'today', 'last7days', 'thisMonth', 'lastMonth', 'custom'
+    const [salesReportDateFrom, setSalesReportDateFrom] = useState('');
+    const [salesReportDateTo, setSalesReportDateTo] = useState('');
+
+    // =============================================================================
     // API FUNCTIONS
     // =============================================================================
 
@@ -557,14 +567,6 @@ class Trie {
     ];
 
     const systemFeatures = [
-    {
-    title: "View Chatbot Logs",
-    description: "Monitor AI chatbot interactions and performance",
-    icon: MessageCircle,
-    color: "from-violet-500 to-purple-500",
-    category: "system",
-    actions: ["View Logs", "Export Data"],
-    },
     {
     title: "Settings",
     description: "Configure store settings and manager profile",
@@ -996,6 +998,232 @@ class Trie {
                 status: 'error'
             });
         }
+    };
+
+    // Fetch comprehensive sales report data
+    const fetchSalesReport = async (period = salesReportPeriod, customFrom = salesReportDateFrom, customTo = salesReportDateTo) => {
+        setSalesReportLoading(true);
+        try {
+            console.log('📊 Fetching sales report for period:', period);
+            
+            // Calculate date range based on period
+            let startDate, endDate;
+            const now = new Date();
+            
+            switch (period) {
+                case 'today':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                    break;
+                case 'last7days':
+                    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    endDate = now;
+                    break;
+                case 'thisMonth':
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+                    break;
+                case 'lastMonth':
+                    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                    startDate = lastMonth;
+                    endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+                    break;
+                case 'custom':
+                    if (customFrom && customTo) {
+                        startDate = new Date(customFrom);
+                        endDate = new Date(customTo + 'T23:59:59');
+                    } else {
+                        throw new Error('Custom date range requires both start and end dates');
+                    }
+                    break;
+                default:
+                    startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                    endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            }
+
+            // Fetch bills data from Node.js server
+            const billsResponse = await fetch(`${API_CONFIG.NODE_SERVER}/api/billing/manager/sales-report`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString()
+                })
+            });
+
+            if (!billsResponse.ok) {
+                throw new Error(`Failed to fetch bills: ${billsResponse.status}`);
+            }
+
+            const billsData = await billsResponse.json();
+            console.log('📋 Bills data:', billsData);
+
+            // Fetch products data from Django for profit calculations
+            const productsResponse = await fetch(`${API_CONFIG.DJANGO_SERVER}/api/products/`);
+            if (!productsResponse.ok) {
+                throw new Error(`Failed to fetch products: ${productsResponse.status}`);
+            }
+
+            const productsData = await productsResponse.json();
+            console.log('🛍️ Products data:', productsData);
+
+            // Process and analyze the data
+            const processedData = processSalesData(billsData.data || [], productsData);
+            setSalesReportData(processedData);
+            console.log('✅ Sales report processed:', processedData);
+
+        } catch (error) {
+            console.error('❌ Error fetching sales report:', error);
+            alert(`Failed to fetch sales report: ${error.message}`);
+        } finally {
+            setSalesReportLoading(false);
+        }
+    };
+
+    // Process sales data to calculate all metrics
+    const processSalesData = (bills, products) => {
+        console.log('🔄 Processing sales data...');
+        
+        // Create product lookup map for cost prices and profit calculations
+        const productMap = {};
+        products.forEach(product => {
+            productMap[product.id] = {
+                costPrice: parseFloat(product.cost_price || 0),
+                sellingPrice: parseFloat(product.selling_price || 0),
+                category: product.category,
+                name: product.name
+            };
+        });
+
+        // Initialize metrics
+        let totalSales = 0;
+        let totalOrders = bills.length;
+        let totalCustomers = new Set();
+        let totalCouponDiscount = 0;
+        let totalSmartCoinsDiscount = 0;
+        let totalNetProfit = 0;
+
+        // Category wise data
+        const categoryStats = {};
+        
+        // Top products data
+        const productStats = {};
+        
+        // Payment mode data
+        const paymentModes = {
+            'Cash': 0,
+            'Card': 0,
+            'UPI': 0,
+            'Wallet': 0
+        };
+
+        // Daily sales for chart
+        const dailySales = {};
+
+        // Process each bill
+        bills.forEach(bill => {
+            totalSales += bill.billing.finalAmount;
+            totalCouponDiscount += bill.billing.couponDiscount || 0;
+            totalSmartCoinsDiscount += bill.billing.smartCoinsDiscount || 0;
+            totalCustomers.add(bill.customerId);
+            
+            // Payment mode stats
+            if (paymentModes.hasOwnProperty(bill.paymentMethod)) {
+                paymentModes[bill.paymentMethod] += bill.billing.finalAmount;
+            }
+
+            // Daily sales
+            const billDate = new Date(bill.billDate).toDateString();
+            if (!dailySales[billDate]) {
+                dailySales[billDate] = 0;
+            }
+            dailySales[billDate] += bill.billing.finalAmount;
+
+            // Process items for category, product stats, and profit
+            bill.items.forEach(item => {
+                const productInfo = productMap[item.productId];
+                
+                // Category stats
+                const category = item.category || 'Others';
+                if (!categoryStats[category]) {
+                    categoryStats[category] = {
+                        sales: 0,
+                        quantity: 0,
+                        profit: 0
+                    };
+                }
+                categoryStats[category].sales += item.itemTotal;
+                categoryStats[category].quantity += item.quantity;
+                
+                // Product stats
+                if (!productStats[item.productId]) {
+                    productStats[item.productId] = {
+                        name: item.productName,
+                        category: item.category,
+                        totalSales: 0,
+                        totalQuantity: 0,
+                        totalProfit: 0
+                    };
+                }
+                productStats[item.productId].totalSales += item.itemTotal;
+                productStats[item.productId].totalQuantity += item.quantity;
+
+                // Calculate profit
+                if (productInfo) {
+                    const profitPerUnit = productInfo.sellingPrice - productInfo.costPrice;
+                    const itemProfit = profitPerUnit * item.quantity;
+                    totalNetProfit += itemProfit;
+                    categoryStats[category].profit += itemProfit;
+                    productStats[item.productId].totalProfit += itemProfit;
+                }
+            });
+        });
+
+        // Convert daily sales to array for chart
+        const chartData = Object.entries(dailySales)
+            .map(([date, sales]) => ({
+                date,
+                sales: Math.round(sales)
+            }))
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        // Top products array
+        const topProducts = Object.values(productStats)
+            .sort((a, b) => b.totalSales - a.totalSales)
+            .slice(0, 10);
+
+        // Category wise array
+        const categoriesArray = Object.entries(categoryStats)
+            .map(([name, data]) => ({
+                name,
+                sales: Math.round(data.sales),
+                quantity: data.quantity,
+                profit: Math.round(data.profit)
+            }))
+            .sort((a, b) => b.sales - a.sales);
+
+        return {
+            // Key Stats
+            totalSales: Math.round(totalSales),
+            totalOrders,
+            totalCustomers: totalCustomers.size,
+            totalDiscounts: Math.round(totalCouponDiscount + totalSmartCoinsDiscount),
+            totalCouponDiscount: Math.round(totalCouponDiscount),
+            totalSmartCoinsDiscount: Math.round(totalSmartCoinsDiscount),
+            totalNetProfit: Math.round(totalNetProfit),
+            
+            // Charts and detailed data
+            chartData,
+            categoriesArray,
+            topProducts,
+            paymentModes,
+            
+            // Additional metrics
+            averageOrderValue: totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0,
+            discountPercentage: totalSales > 0 ? ((totalCouponDiscount + totalSmartCoinsDiscount) / (totalSales + totalCouponDiscount + totalSmartCoinsDiscount) * 100).toFixed(1) : 0,
+        };
     };
 
     // Function to export customer data
@@ -1836,9 +2064,73 @@ class Trie {
 
     const handleReportClick = (action) => {
         if (action === "View Report") {
-            // Directly show analytics/sales data instead of modal
-            console.log("Sales report requested - implement analytics view");
+            console.log("📊 Opening sales report");
+            setShowSalesReportModal(true);
+            if (!salesReportData) {
+                fetchSalesReport(); // Fetch data if not already loaded
+            }
         }
+    };
+
+    // Handle sales report period change
+    const handleSalesReportPeriodChange = (newPeriod) => {
+        setSalesReportPeriod(newPeriod);
+        
+        if (newPeriod !== 'custom') {
+            // Clear custom dates when switching to predefined periods
+            setSalesReportDateFrom('');
+            setSalesReportDateTo('');
+            // Fetch new data for the selected period
+            fetchSalesReport(newPeriod);
+        }
+    };
+
+    // Handle custom date range selection
+    const handleCustomDateRangeSubmit = () => {
+        if (salesReportDateFrom && salesReportDateTo) {
+            if (new Date(salesReportDateFrom) > new Date(salesReportDateTo)) {
+                alert('Start date cannot be later than end date');
+                return;
+            }
+            fetchSalesReport('custom', salesReportDateFrom, salesReportDateTo);
+        } else {
+            alert('Please select both start and end dates');
+        }
+    };
+
+    // Close sales report modal
+    const closeSalesReportModal = () => {
+        setShowSalesReportModal(false);
+    };
+
+    // Export sales report as JSON
+    const exportSalesReport = () => {
+        if (!salesReportData) {
+            alert('No sales data to export');
+            return;
+        }
+
+        const exportData = {
+            reportPeriod: salesReportPeriod,
+            customDateRange: salesReportPeriod === 'custom' ? {
+                from: salesReportDateFrom,
+                to: salesReportDateTo
+            } : null,
+            generatedAt: new Date().toISOString(),
+            data: salesReportData
+        };
+
+        const dataStr = JSON.stringify(exportData, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(dataBlob);
+        link.download = `sales-report-${salesReportPeriod}-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log('📊 Sales report exported successfully');
     };
 
     // =============================================================================
@@ -5129,8 +5421,314 @@ class Trie {
     </div>
     </div>
     )}
+
+    {/* Sales Report Modal */}
+    {showSalesReportModal && (
+    <div className="fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div className={`${theme.card} rounded-xl shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700`}>
+        {/* Header */}
+        <div className={`${theme.accent} px-6 py-5 flex items-center justify-between border-b border-gray-200 dark:border-gray-600`}>
+            <div>
+            <h2 className={`text-2xl font-bold ${theme.text}`}>📊 Sales Analytics Dashboard</h2>
+            <p className={`text-sm ${theme.textSecondary} mt-1`}>Comprehensive revenue and performance insights</p>
+            </div>
+            <button
+            onClick={closeSalesReportModal}
+            className={`${theme.buttonSecondary} px-4 py-2 rounded-lg transition-all hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900 dark:hover:text-red-300 text-gray-600 dark:text-gray-400`}
+            >
+            ✖️ Close
+            </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+            {salesReportLoading ? (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                <div className="animate-spin text-4xl mb-4">📊</div>
+                <p className={`${theme.textSecondary}`}>Loading comprehensive sales data...</p>
+                </div>
+            </div>
+            ) : (
+            <>
+                {/* Period Selector */}
+                <div className={`${theme.accent} rounded-lg p-4 mb-6`}>
+                <h3 className={`text-lg font-semibold mb-3 ${theme.text}`}>📅 Report Period</h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {[
+                    { value: 'today', label: 'Today' },
+                    { value: 'last7days', label: 'Last 7 Days' },
+                    { value: 'thisMonth', label: 'This Month' },
+                    { value: 'lastMonth', label: 'Last Month' },
+                    { value: 'custom', label: 'Custom Range' }
+                    ].map(period => (
+                    <button
+                        key={period.value}
+                        onClick={() => handleSalesReportPeriodChange(period.value)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                        salesReportPeriod === period.value
+                            ? 'bg-blue-500 text-white shadow-lg'
+                            : `${theme.button} ${theme.text} hover:bg-blue-100 dark:hover:bg-blue-900`
+                        }`}
+                    >
+                        {period.label}
+                    </button>
+                    ))}
+                </div>
+
+                {/* Custom Date Range */}
+                {salesReportPeriod === 'custom' && (
+                    <div className="flex flex-wrap gap-4 items-end">
+                    <div>
+                        <label className={`block text-sm font-medium ${theme.text} mb-1`}>From Date</label>
+                        <input
+                        type="date"
+                        value={salesReportDateFrom}
+                        onChange={(e) => setSalesReportDateFrom(e.target.value)}
+                        className={`${theme.input} px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500`}
+                        />
+                    </div>
+                    <div>
+                        <label className={`block text-sm font-medium ${theme.text} mb-1`}>To Date</label>
+                        <input
+                        type="date"
+                        value={salesReportDateTo}
+                        onChange={(e) => setSalesReportDateTo(e.target.value)}
+                        className={`${theme.input} px-3 py-2 rounded-lg border focus:ring-2 focus:ring-blue-500`}
+                        />
+                    </div>
+                    <button
+                        onClick={handleCustomDateRangeSubmit}
+                        className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition-colors shadow-lg"
+                    >
+                        Apply Range
+                    </button>
+                    </div>
+                )}
+                </div>
+
+                {/* Key Statistics */}
+                {salesReportData && (
+                <>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
+                        <div className="text-3xl mb-2">💰</div>
+                        <div className={`text-2xl font-bold ${theme.text}`}>₹{salesReportData.totalSales}</div>
+                        <div className={`text-sm ${theme.textSecondary}`}>Total Sales</div>
+                    </div>
+                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
+                        <div className="text-3xl mb-2">🛒</div>
+                        <div className={`text-2xl font-bold ${theme.text}`}>{salesReportData.totalOrders}</div>
+                        <div className={`text-sm ${theme.textSecondary}`}>Total Orders</div>
+                    </div>
+                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
+                        <div className="text-3xl mb-2">👥</div>
+                        <div className={`text-2xl font-bold ${theme.text}`}>{salesReportData.totalCustomers}</div>
+                        <div className={`text-sm ${theme.textSecondary}`}>Customers</div>
+                    </div>
+                    <div className={`${theme.accent} p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600`}>
+                        <div className="text-3xl mb-2">📈</div>
+                        <div className={`text-2xl font-bold ${theme.text}`}>₹{salesReportData.averageOrderValue}</div>
+                        <div className={`text-sm ${theme.textSecondary}`}>Avg. Order</div>
+                    </div>
+                    </div>
+
+                    {/* Sales Chart */}
+                    {salesReportData.chartData && salesReportData.chartData.length > 0 && (
+                    <div className={`${theme.accent} rounded-lg p-6 mb-6 border border-gray-200 dark:border-gray-600`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>📈 Sales Trend</h3>
+                        <div className="h-64 flex items-end justify-between space-x-2">
+                        {salesReportData.chartData.map((data, index) => {
+                            const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
+                            const height = (data.sales / maxSales) * 100;
+                            return (
+                            <div key={index} className="flex-1 flex flex-col items-center">
+                                <div
+                                className="bg-gradient-to-t from-blue-500 to-blue-400 rounded-t transition-all duration-500 hover:from-blue-600 hover:to-blue-500 flex items-end justify-center relative group cursor-pointer"
+                                style={{ height: `${Math.max(height, 5)}%`, minHeight: '20px' }}
+                                >
+                                <span className="text-white text-xs font-semibold p-1">₹{data.sales}</span>
+                                </div>
+                                <div className={`text-xs ${theme.textSecondary} mt-2 text-center transform -rotate-45 origin-center`}>
+                                {new Date(data.date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                                </div>
+                            </div>
+                            );
+                        })}
+                        </div>
+                    </div>
+                    )}
+
+                    {/* Two Column Layout for detailed stats */}
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    
+                    {/* Category Wise Sales */}
+                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🏷️ Category Performance</h3>
+                        <div className="space-y-3">
+                        {salesReportData.categoriesArray && salesReportData.categoriesArray.slice(0, 8).map((category, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div className="flex-1">
+                                <div className={`font-medium ${theme.text}`}>{category.name}</div>
+                                <div className={`text-sm ${theme.textSecondary}`}>
+                                {category.quantity} items • ₹{category.profit} profit
+                                </div>
+                            </div>
+                            <div className={`font-bold ${theme.text} text-green-600 dark:text-green-400`}>₹{category.sales}</div>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+
+                    {/* Top Products */}
+                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🔥 Top Products</h3>
+                        <div className="space-y-3">
+                        {salesReportData.topProducts && salesReportData.topProducts.slice(0, 8).map((product, index) => (
+                            <div key={index} className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <div className="flex-1">
+                                <div className={`font-medium ${theme.text} truncate`}>{product.name}</div>
+                                <div className={`text-sm ${theme.textSecondary}`}>
+                                {product.totalQuantity} sold • ₹{Math.round(product.totalProfit)} profit
+                                </div>
+                            </div>
+                            <div className={`font-bold ${theme.text} text-green-600 dark:text-green-400`}>₹{Math.round(product.totalSales)}</div>
+                            </div>
+                        ))}
+                        </div>
+                    </div>
+                    
+                    </div>
+
+                    {/* Bottom Row - Discounts and Payment Methods */}
+                    <div className="grid md:grid-cols-2 gap-6 mb-6">
+                    
+                    {/* Discount Analysis */}
+                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>🎫 Discount Analysis</h3>
+                        <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <span className={theme.text}>Total Discounts Given</span>
+                            <span className={`font-bold ${theme.text} text-red-600 dark:text-red-400`}>₹{salesReportData.totalDiscounts}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className={`${theme.textSecondary} ml-4`}>• Coupon Discounts</span>
+                            <span className={theme.text}>₹{salesReportData.totalCouponDiscount}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className={`${theme.textSecondary} ml-4`}>• SmartCoins Used</span>
+                            <span className={theme.text}>₹{salesReportData.totalSmartCoinsDiscount}</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <span className={theme.text}>Discount Percentage</span>
+                            <span className={`font-bold ${theme.text} text-orange-600 dark:text-orange-400`}>{salesReportData.discountPercentage}%</span>
+                        </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Methods */}
+                    <div className={`${theme.accent} rounded-lg p-6 border border-gray-200 dark:border-gray-600`}>
+                        <h3 className={`text-lg font-semibold mb-4 ${theme.text}`}>💳 Payment Methods</h3>
+                        <div className="space-y-3">
+                        {salesReportData.paymentModes && Object.entries(salesReportData.paymentModes).map(([method, amount]) => {
+                            const percentage = salesReportData.totalSales > 0 ? ((amount / salesReportData.totalSales) * 100).toFixed(1) : 0;
+                            return (
+                            <div key={method} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                <span className={theme.text}>{method}</span>
+                                <span className={`font-medium ${theme.text}`}>₹{Math.round(amount)} ({percentage}%)</span>
+                                </div>
+                                <div className="w-full bg-gray-300 dark:bg-gray-600 rounded-full h-2">
+                                <div 
+                                    className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                                    style={{ width: `${percentage}%` }}
+                                ></div>
+                                </div>
+                            </div>
+                            );
+                        })}
+                        </div>
+                    </div>
+                    
+                    </div>
+
+                    {/* Profit Summary */}
+                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 border border-green-200 dark:border-green-700 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold mb-4 text-green-800 dark:text-green-200">💹 Profit Summary</h3>
+                    <div className="grid md:grid-cols-3 gap-4 text-center">
+                        <div>
+                        <div className="text-3xl font-bold text-green-600 dark:text-green-400">₹{salesReportData.totalNetProfit}</div>
+                        <div className="text-sm text-green-700 dark:text-green-300">Net Profit</div>
+                        </div>
+                        <div>
+                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                            {salesReportData.totalSales > 0 ? ((salesReportData.totalNetProfit / salesReportData.totalSales) * 100).toFixed(1) : 0}%
+                        </div>
+                        <div className="text-sm text-blue-700 dark:text-blue-300">Profit Margin</div>
+                        </div>
+                        <div>
+                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                            ₹{salesReportData.totalOrders > 0 ? Math.round(salesReportData.totalNetProfit / salesReportData.totalOrders) : 0}
+                        </div>
+                        <div className="text-sm text-purple-700 dark:text-purple-300">Profit per Order</div>
+                        </div>
+                    </div>
+                    </div>
+                </>
+                )}
+
+                {!salesReportData && !salesReportLoading && (
+                <div className="text-center py-12">
+                    <div className="text-6xl mb-4">📊</div>
+                    <h3 className={`text-xl font-semibold mb-2 ${theme.text}`}>No Sales Data</h3>
+                    <p className={`${theme.textSecondary} mb-4`}>No sales found for the selected period</p>
+                    <button
+                    onClick={() => fetchSalesReport()}
+                    className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors shadow-lg"
+                    >
+                    🔄 Refresh Data
+                    </button>
+                </div>
+                )}
+            </>
+            )}
+        </div>
+
+        {/* Footer */}
+        <div className={`${theme.accent} px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-600`}>
+            <div className={`text-sm ${theme.textSecondary}`}>
+            {salesReportData && (
+                <>Last updated: {new Date().toLocaleString('en-IN')}</>
+            )}
+            </div>
+            <div className="space-x-3">
+            <button
+                onClick={() => exportSalesReport()}
+                disabled={!salesReportData || salesReportLoading}
+                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 shadow-lg"
+            >
+                📊 Export PDF
+            </button>
+            <button
+                onClick={() => fetchSalesReport(salesReportPeriod, salesReportDateFrom, salesReportDateTo)}
+                disabled={salesReportLoading}
+                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 shadow-lg"
+            >
+                {salesReportLoading ? '🔄 Loading...' : '🔄 Refresh'}
+            </button>
+            <button
+                onClick={closeSalesReportModal}
+                className={`${theme.button} px-4 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-600`}
+            >
+                Close
+            </button>
+            </div>
+        </div>
+        </div>
+    </div>
+    )}
     </div>
     );
-    };
+};
 
-    export default Manager;
+export default Manager;
