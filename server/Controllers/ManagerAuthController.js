@@ -31,7 +31,7 @@ const managerLogin = async (req, res) => {
         // Validate manager email
         if (manager.email !== email) {
             return res.status(404).json({ 
-                message: 'Manager not found. Please check your credentials.', 
+                message: 'You are not Manager, Please Visit to Customer Portal..', 
                 success: false
             });
         }
