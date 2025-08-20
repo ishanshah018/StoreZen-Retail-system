@@ -136,7 +136,6 @@ class Trie {
     // Success feedback states
     const [showSuccess, setShowSuccess] = useState(false);
     const [updateSuccess, setUpdateSuccess] = useState('');
-    const [showPdfSuccess, setShowPdfSuccess] = useState(false);
 
     // Search functionality
     const [searchQuery, setSearchQuery] = useState('');
@@ -516,7 +515,7 @@ class Trie {
     icon: BarChart,
     color: "from-purple-500 to-pink-500",
     category: "analytics",
-    actions: ["View Report", "Download PDF"],
+    actions: ["View Report"],
     },
     ];
 
@@ -1947,97 +1946,6 @@ class Trie {
     }
     };
 
-    // Function to download stock PDF report
-    const downloadStockPDF = async () => {
-        try {
-            console.log('Starting PDF download...');
-            setStockLoading(true);
-            
-            const response = await fetch(buildApiUrl('django', API_CONFIG.endpoints.django.stockPdf), {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/pdf',
-                    'Content-Type': 'application/json',
-                },
-                mode: 'cors', // Explicitly set CORS mode
-            });
-
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
-            }
-
-            // Get the content-disposition header to extract filename
-            const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = 'stock_inventory.pdf';
-            
-            if (contentDisposition) {
-                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                if (filenameMatch) {
-                    filename = filenameMatch[1];
-                }
-            } else {
-                // Fallback filename with current date
-                const currentDate = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
-                filename = `stock_inventory_${currentDate}.pdf`;
-            }
-
-            console.log('Using filename:', filename);
-
-            // Create blob from response
-            const blob = await response.blob();
-            console.log('Blob size:', blob.size, 'bytes');
-
-            if (blob.size === 0) {
-                throw new Error('Received empty PDF file');
-            }
-
-            // Create download link
-            const url = window.URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.style.display = 'none';
-
-            // Add to DOM, trigger download, then cleanup
-            document.body.appendChild(link);
-            link.click();
-            
-            // Cleanup after a short delay
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }, 100);
-
-            console.log('PDF download initiated successfully');
-            
-            // Show success modal instead of alert
-            setShowPdfSuccess(true);
-            
-            // Auto-hide the modal after 3 seconds
-            setTimeout(() => {
-                setShowPdfSuccess(false);
-            }, 3000);
-            
-        } catch (error) {
-            console.error('Detailed PDF download error:', error);
-            console.error('Error stack:', error.stack);
-            
-            // More specific error messages
-            if (error.message.includes('Failed to fetch')) {
-                alert('Network error: Unable to connect to server. Please check if the Django server is running on port 8000.');
-            } else if (error.message.includes('HTTP error')) {
-                alert(`Server error: ${error.message}. Please check the server logs.`);
-            } else {
-                alert(`Download failed: ${error.message}. Please try again or check the console for more details.`);
-            }
-        } finally {
-            setStockLoading(false);
-        }
-    };
-
     const handleInventoryClick = (action) => {
     if (action === "Other Options") {
     setShowInventoryOptions(true);
@@ -2101,36 +2009,6 @@ class Trie {
     // Close sales report modal
     const closeSalesReportModal = () => {
         setShowSalesReportModal(false);
-    };
-
-    // Export sales report as JSON
-    const exportSalesReport = () => {
-        if (!salesReportData) {
-            alert('No sales data to export');
-            return;
-        }
-
-        const exportData = {
-            reportPeriod: salesReportPeriod,
-            customDateRange: salesReportPeriod === 'custom' ? {
-                from: salesReportDateFrom,
-                to: salesReportDateTo
-            } : null,
-            generatedAt: new Date().toISOString(),
-            data: salesReportData
-        };
-
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(dataBlob);
-        link.download = `sales-report-${salesReportPeriod}-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        console.log('📊 Sales report exported successfully');
     };
 
     // =============================================================================
@@ -3223,14 +3101,6 @@ class Trie {
                     
                     {/* Action Buttons */}
                     <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-3 w-full md:w-auto">
-                        <GradientButton 
-                            variant="success"
-                            className="w-full md:w-auto px-4 py-2"
-                            onClick={downloadStockPDF}
-                            disabled={stockLoading}
-                        >
-                            📄 Download PDF
-                        </GradientButton>
                         <GradientButton 
                             variant="primary"
                             className="w-full md:w-auto px-4 py-2 flex items-center justify-center"
@@ -4483,10 +4353,6 @@ class Trie {
     <div className={`font-medium ${theme.textSecondary}`}>Customer Requests</div>
     </div>
     <div className="space-y-2">
-    <div className="text-4xl font-bold text-purple-600">$125K</div>
-    <div className={`font-medium ${theme.textSecondary}`}>Monthly Revenue</div>
-    </div>
-    <div className="space-y-2">
     <div className="text-4xl font-bold text-pink-600">
         {analyticsData?.averageRating ? `${analyticsData.averageRating}★` : '4.8 Stars'}
     </div>
@@ -5397,31 +5263,6 @@ class Trie {
         </div>
     )}
 
-    {/* PDF Download Success Modal */}
-    {showPdfSuccess && (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className={`rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border text-center`}>
-    <div className="animate-bounce text-6xl mb-4">
-    <svg className="w-16 h-16 mx-auto text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-    </div>
-    <h3 className={`text-2xl font-bold mb-4 ${theme.text}`}>
-        PDF Downloaded Successfully!
-    </h3>
-    <p className={`${theme.textSecondary} text-lg`}>
-        Your stock inventory report has been saved to your downloads folder
-    </p>
-    <Button 
-        className="mt-6 bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg rounded-lg"
-        onClick={() => setShowPdfSuccess(false)}
-    >
-        Got it!
-    </Button>
-    </div>
-    </div>
-    )}
-
     {/* Sales Report Modal - Professional Theme-Compatible Dashboard */}
     {showSalesReportModal && (
     <div className={`fixed inset-0 backdrop-blur-sm flex items-center justify-center z-[60] p-4 ${theme.bg}/80`}>
@@ -5624,7 +5465,7 @@ class Trie {
                     </div>
                     </div>
 
-                    {/* Theme-Compatible Professional Sales Chart */}
+                    {/* Enhanced Professional Sales Chart with Grid and Better Visualization */}
                     {salesReportData.chartData && salesReportData.chartData.length > 0 && (
                     <div className={`${theme.cardBg} rounded-xl ${theme.border} border overflow-hidden shadow-lg mb-8 backdrop-blur-sm`}>
                         <div className={`${theme.gradientOverlay} px-6 py-4 ${theme.border} border-b`}>
@@ -5632,53 +5473,149 @@ class Trie {
                             <div className="flex items-center">
                             <div className={`${theme.gradientOverlay} rounded-full p-2 mr-3`}>
                                 <svg className={`w-5 h-5 ${theme.accent}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
                                 </svg>
                             </div>
                             <div>
-                                <h3 className={`text-lg font-semibold ${theme.text}`}>Sales Trend Analysis</h3>
-                                <p className={`text-sm ${theme.textSecondary}`}>Daily revenue performance overview</p>
+                                <h3 className={`text-lg font-semibold ${theme.text}`}>📈 Sales Trend Analysis</h3>
+                                <p className={`text-sm ${theme.textSecondary}`}>Daily revenue performance with interactive visualization</p>
                             </div>
                             </div>
-                            <div className={`text-sm ${theme.textSecondary}`}>
-                            Total: ₹{salesReportData.chartData.reduce((sum, item) => sum + item.sales, 0).toLocaleString()}
+                            <div className="text-right">
+                            <div className={`text-sm font-medium ${theme.text}`}>Total Revenue</div>
+                            <div className={`text-lg font-bold ${theme.accent}`}>
+                                ₹{salesReportData.chartData.reduce((sum, item) => sum + item.sales, 0).toLocaleString()}
+                            </div>
                             </div>
                         </div>
                         </div>
                         <div className="p-6">
-                        <div className="h-80 flex items-end justify-between space-x-2 bg-gradient-to-t from-gray-50 to-transparent dark:from-gray-800 rounded-lg p-4">
+                        {/* Chart Container with Grid Background */}
+                        <div className="relative">
+                            {/* Grid Background */}
+                            <div className="absolute inset-0 opacity-20">
+                            <svg className="w-full h-96" viewBox="0 0 400 384">
+                                <defs>
+                                <pattern id="grid" width="40" height="38.4" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 38.4" fill="none" stroke="currentColor" strokeWidth="0.5" className={theme.textSecondary}/>
+                                </pattern>
+                                </defs>
+                                <rect width="100%" height="100%" fill="url(#grid)" />
+                                {/* Horizontal lines for values */}
+                                {[0, 25, 50, 75, 100].map(y => (
+                                <line key={y} x1="0" y1={y * 3.84} x2="400" y2={y * 3.84} 
+                                    stroke="currentColor" strokeWidth="0.5" className={theme.textSecondary} opacity="0.3"/>
+                                ))}
+                            </svg>
+                            </div>
+                            
+                            {/* Enhanced Chart with Better Spacing and Animation */}
+                            <div className="relative h-96 flex items-end justify-between space-x-1 px-4 py-4">
                             {salesReportData.chartData.map((data, index) => {
-                            const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
-                            const height = maxSales > 0 ? (data.sales / maxSales) * 100 : 0;
-                            return (
-                                <div key={index} className="flex-1 flex flex-col items-center group cursor-pointer">
-                                <div className="relative w-full flex flex-col items-center">
-                                    {/* Tooltip */}
-                                    <div className="absolute -top-12 bg-gray-800 text-white text-xs rounded-lg px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
-                                    ₹{data.sales.toLocaleString()}
+                                const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
+                                const height = maxSales > 0 ? (data.sales / maxSales) * 100 : 0;
+                                const isHighest = data.sales === maxSales;
+                                
+                                return (
+                                <div key={index} className="flex-1 flex flex-col items-center group cursor-pointer relative max-w-16">
+                                    {/* Enhanced Tooltip */}
+                                    <div className={`absolute -top-16 left-1/2 transform -translate-x-1/2 ${theme.cardBg} ${theme.border} border rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 shadow-lg`}>
+                                    <div className={`text-xs font-semibold ${theme.text}`}>₹{data.sales.toLocaleString()}</div>
+                                    <div className={`text-xs ${theme.textSecondary}`}>
+                                        {new Date(data.date).toLocaleDateString('en-IN', { 
+                                        month: 'short', 
+                                        day: 'numeric',
+                                        year: '2-digit'
+                                        })}
                                     </div>
-                                    {/* Bar */}
+                                    </div>
+                                    
+                                    {/* Enhanced Bar with Better Design */}
+                                    <div className="relative w-full flex flex-col items-center">
                                     <div
-                                    className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-700 hover:from-blue-600 hover:to-blue-500 shadow-lg hover:shadow-xl relative"
-                                    style={{ height: `${Math.max(height, 3)}%`, minHeight: '12px' }}
+                                        className={`w-full rounded-t-lg transition-all duration-700 hover:scale-105 shadow-lg hover:shadow-xl relative overflow-hidden group-hover:brightness-110 ${
+                                        isHighest 
+                                            ? 'bg-gradient-to-t from-green-500 via-green-400 to-green-300 shadow-green-500/30' 
+                                            : theme.button.includes('gradient') 
+                                            ? theme.button.replace('bg-gradient-to-r', 'bg-gradient-to-t') 
+                                            : 'bg-gradient-to-t from-blue-500 via-blue-400 to-blue-300'
+                                        }`}
+                                        style={{ height: `${Math.max(height, 4)}%`, minHeight: '16px' }}
                                     >
-                                    {/* Value Label */}
-                                    <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        ₹{data.sales}
+                                        {/* Shimmer Effect */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                                        
+                                        {/* Value Display on Bar */}
+                                        {height > 20 && (
+                                        <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs font-bold text-white opacity-80">
+                                            ₹{data.sales > 1000 ? Math.round(data.sales/1000) + 'K' : data.sales}
+                                        </div>
+                                        )}
+                                    </div>
+                                    </div>
+                                    
+                                    {/* Enhanced Date Label */}
+                                    <div className={`text-xs ${theme.textSecondary} mt-2 text-center transform group-hover:scale-110 transition-all duration-300 group-hover:font-semibold ${isHighest ? theme.accent : ''}`}>
+                                    <div className="font-medium">
+                                        {new Date(data.date).toLocaleDateString('en-IN', { 
+                                        day: 'numeric'
+                                        })}
+                                    </div>
+                                    <div className="text-xs">
+                                        {new Date(data.date).toLocaleDateString('en-IN', { 
+                                        month: 'short'
+                                        })}
                                     </div>
                                     </div>
                                 </div>
-                                {/* Date Label */}
-                                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center transform group-hover:scale-110 transition-transform">
-                                    {new Date(data.date).toLocaleDateString('en-IN', { 
-                                    month: 'short', 
-                                    day: 'numeric',
-                                    ...(salesReportData.chartData.length <= 7 && { weekday: 'short' })
-                                    })}
-                                </div>
-                                </div>
-                            );
+                                );
                             })}
+                            </div>
+                            
+                            {/* Y-Axis Labels */}
+                            <div className="absolute left-0 top-4 bottom-16 flex flex-col justify-between">
+                            {(() => {
+                                const maxSales = Math.max(...salesReportData.chartData.map(d => d.sales));
+                                return [100, 75, 50, 25, 0].map(percent => {
+                                const value = Math.round((maxSales * percent) / 100);
+                                return (
+                                    <div key={percent} className={`text-xs ${theme.textSecondary} -ml-8 flex items-center`}>
+                                    ₹{value > 1000 ? Math.round(value/1000) + 'K' : value}
+                                    </div>
+                                );
+                                });
+                            })()}
+                            </div>
+                        </div>
+                        
+                        {/* Chart Statistics */}
+                        <div className={`mt-6 pt-4 ${theme.border} border-t`}>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div className={`text-lg font-bold ${theme.text}`}>
+                                {salesReportData.chartData.length}
+                                </div>
+                                <div className={`text-xs ${theme.textSecondary}`}>Days</div>
+                            </div>
+                            <div>
+                                <div className={`text-lg font-bold ${theme.accent}`}>
+                                ₹{Math.round(salesReportData.chartData.reduce((sum, item) => sum + item.sales, 0) / salesReportData.chartData.length).toLocaleString()}
+                                </div>
+                                <div className={`text-xs ${theme.textSecondary}`}>Avg/Day</div>
+                            </div>
+                            <div>
+                                <div className={`text-lg font-bold text-green-600`}>
+                                ₹{Math.max(...salesReportData.chartData.map(d => d.sales)).toLocaleString()}
+                                </div>
+                                <div className={`text-xs ${theme.textSecondary}`}>Best Day</div>
+                            </div>
+                            <div>
+                                <div className={`text-lg font-bold text-red-600`}>
+                                ₹{Math.min(...salesReportData.chartData.map(d => d.sales)).toLocaleString()}
+                                </div>
+                                <div className={`text-xs ${theme.textSecondary}`}>Lowest Day</div>
+                            </div>
+                            </div>
                         </div>
                         </div>
                     </div>
@@ -6054,16 +5991,6 @@ class Trie {
             )}
             </div>
             <div className="flex items-center space-x-4">
-            <button
-                onClick={() => exportSalesReport()}
-                disabled={!salesReportData || salesReportLoading}
-                className={`inline-flex items-center ${theme.button} disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-lg ${theme.hover}`}
-            >
-                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Export PDF
-            </button>
             <button
                 onClick={() => fetchSalesReport(salesReportPeriod, salesReportDateFrom, salesReportDateTo)}
                 disabled={salesReportLoading}
