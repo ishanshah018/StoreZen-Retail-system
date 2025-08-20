@@ -6,12 +6,14 @@ import { ThemeProvider } from './components/theme';
 
 // Authentication
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import ManagerProtectedRoute from './components/auth/ManagerProtectedRoute';
 
 // Page Components
 import Main from './pages/main';
 import Customer from './pages/customer';
 import Manager from './pages/manager';
 import Login from './pages/LoginPage';
+import ManagerLogin from './pages/ManagerLogin';
 import Signup from './pages/SignupPage';
 import Profile from './pages/Profile';
 
@@ -32,13 +34,13 @@ function App() {
                 PUBLIC ROUTES - No authentication required
                ============================================================================= */}
           
-          <Route path="/" element={<Main />} />           {/* Landing page */}
-          <Route path="/manager" element={<Manager />} /> {/* Manager dashboard */}
-          <Route path="/login" element={<Login />} />     {/* User login */}
-          <Route path="/signup" element={<Signup />} />   {/* User registration */}
+          <Route path="/" element={<Main />} />             {/* Landing page */}
+          <Route path="/login" element={<Login />} />       {/* User login */}
+          <Route path="/manager/login" element={<ManagerLogin />} /> {/* Manager login */}
+          <Route path="/signup" element={<Signup />} />     {/* User registration */}
           
           {/* =============================================================================
-               PROTECTED ROUTES - Require user authentication
+               PROTECTED ROUTES - Require authentication
                ============================================================================= */}
           
           {/* Customer shopping interface */}
@@ -48,6 +50,16 @@ function App() {
               <ProtectedRoute>
                 <Customer />
               </ProtectedRoute>
+            } 
+          />
+          
+          {/* Manager dashboard - requires manager authentication */}
+          <Route 
+            path="/manager" 
+            element={
+              <ManagerProtectedRoute>
+                <Manager />
+              </ManagerProtectedRoute>
             } 
           />
           

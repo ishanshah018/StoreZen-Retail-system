@@ -1,4 +1,5 @@
 const ManagerModel = require('../Models/Manager');
+const bcrypt = require('bcrypt');
 
 
 // API endpoint - Get manager profile data from database
@@ -45,7 +46,9 @@ const updateManagerProfile = async (req, res) => {
             storeAddress,
             contact,
             lowStockThreshold,
-            whatsappAlertsEnabled
+            whatsappAlertsEnabled,
+            currentPassword,
+            newPassword
         } = req.body;
 
         let manager = await ManagerModel.findOne({});
@@ -54,7 +57,30 @@ const updateManagerProfile = async (req, res) => {
             manager = await ManagerModel.getOrCreateDefault();
         }
 
-        // Update fields if provided
+        // Handle password update if provided
+        if (newPassword) {
+            if (!currentPassword) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Current password is required to update password"
+                });
+            }
+
+            // Verify current password
+            const isCurrentPasswordValid = await bcrypt.compare(currentPassword, manager.password);
+            if (!isCurrentPasswordValid) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Current password is incorrect"
+                });
+            }
+
+            // Hash and update new password
+            const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+            manager.password = hashedNewPassword;
+        }
+
+        // Update other fields if provided
         if (name !== undefined) manager.name = name;
         if (email !== undefined) manager.email = email;
         if (storeAddress !== undefined) manager.storeAddress = storeAddress;
@@ -66,7 +92,7 @@ const updateManagerProfile = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Manager profile updated successfully",
+            message: newPassword ? "Profile and password updated successfully" : "Manager profile updated successfully",
             manager: {
                 id: manager._id,
                 name: manager.name,

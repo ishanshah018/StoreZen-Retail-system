@@ -27,6 +27,7 @@ const cors = require("cors");
 
 // Route imports
 const AuthRouter = require('./Routes/AuthRouter');
+const ManagerAuthRouter = require('./Routes/ManagerAuthRouter');
 const ProfileRouter = require('./Routes/ProfileRouter');
 const ManagerRouter = require('./Routes/ManagerRouter');
 const CustomerRouter = require('./Routes/CustomerRoutes');
@@ -144,6 +145,7 @@ app.get('/api/system/health', async (req, res) => {
 
 // Authentication routes
 app.use('/auth', AuthRouter);
+app.use('/manager/auth', ManagerAuthRouter);
 app.use('/profile', ProfileRouter);
 
 // Management routes  

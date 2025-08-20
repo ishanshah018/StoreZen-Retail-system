@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 // UI Components
 import { Button } from "../components/ui/button";
@@ -19,7 +19,7 @@ import {
 import {
     Package, BarChart, Megaphone, Users, Percent, MessageCircle,
     Heart, Plus, Minus, Send, TrendingUp, AlertTriangle, Settings,
-    Store, ArrowLeft, CheckCircle, XCircle,
+    Store, ArrowLeft, CheckCircle, XCircle, Eye, EyeOff, LogOut,
 } from "lucide-react";
 
 // Utilities and API
@@ -90,6 +90,7 @@ class Trie {
     // Theme management
     const { currentTheme, setCurrentTheme } = useTheme();
     const theme = getThemeStyles(currentTheme);
+    const navigate = useNavigate();
 
     // =============================================================================
     // STATE MANAGEMENT
@@ -233,6 +234,23 @@ class Trie {
         }
     });
 
+    // Password update states
+    const [passwordData, setPasswordData] = useState({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+    });
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [passwordErrors, setPasswordErrors] = useState({});
+
+    // Success/Error modals
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [modalMessage, setModalMessage] = useState('');
+    const [modalTitle, setModalTitle] = useState('');
+
     // Store configuration
     const [storeTheme, setStoreTheme] = useState(() => {
         const saved = localStorage.getItem('managerStoreTheme');
@@ -305,39 +323,83 @@ class Trie {
     };
 
     // Function to save manager profile to MongoDB
-    const saveManagerProfile = async () => {
-    setProfileLoading(true);
+    const saveManagerProfile = async (includePassword = false) => {
+        // Validate password if updating
+        if (includePassword) {
+            const errors = {};
+            
+            if (!passwordData.currentPassword) {
+                errors.currentPassword = 'Current password is required';
+            }
+            
+            if (!passwordData.newPassword) {
+                errors.newPassword = 'New password is required';
+            } else if (passwordData.newPassword.length < 6) {
+                errors.newPassword = 'Password must be at least 6 characters';
+            }
+            
+            if (passwordData.newPassword !== passwordData.confirmPassword) {
+                errors.confirmPassword = 'Passwords do not match';
+            }
+            
+            if (Object.keys(errors).length > 0) {
+                setPasswordErrors(errors);
+                return { success: false, message: 'Please fix password validation errors' };
+            }
+            
+            setPasswordErrors({});
+        }
 
-    try {
-    const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.profile}`, {
-    method: 'PUT',
-    headers: {
-    'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-    name: managerProfile.name,
-    email: managerProfile.email,
-    storeAddress: managerProfile.storeAddress,
-    contact: managerProfile.contact
-    }),
-    });
+        setProfileLoading(true);
 
-    if (response.ok) {
-    const data = await response.json();
-    if (data.success) {
-    return { success: true, message: data.message };
-    } else {
-    throw new Error(data.message || 'Failed to save profile');
-    }
-    } else {
-    throw new Error('Failed to save profile');
-    }
-    } catch (error) {
-    console.error('Error saving manager profile:', error);
-    return { success: false, message: error.message };
-    } finally {
-    setProfileLoading(false);
-    }
+        try {
+            const requestBody = {
+                name: managerProfile.name,
+                email: managerProfile.email,
+                storeAddress: managerProfile.storeAddress,
+                contact: managerProfile.contact
+            };
+
+            // Include password data if updating password
+            if (includePassword) {
+                requestBody.currentPassword = passwordData.currentPassword;
+                requestBody.newPassword = passwordData.newPassword;
+            }
+
+            const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.manager.profile}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(requestBody),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Clear password fields on success
+                    if (includePassword) {
+                        setPasswordData({
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: ''
+                        });
+                        setPasswordErrors({});
+                    }
+                    return { success: true, message: data.message };
+                } else {
+                    throw new Error(data.message || 'Failed to save profile');
+                }
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to save profile');
+            }
+        } catch (error) {
+            console.error('Error saving manager profile:', error);
+            return { success: false, message: error.message };
+        } finally {
+            setProfileLoading(false);
+        }
     };
 
     // Function to save WhatsApp alert settings to MongoDB
@@ -345,7 +407,7 @@ class Trie {
     setProfileLoading(true);
 
     try {
-    const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.manager.profile}`, {
+    const response = await fetch(`${API_CONFIG.NODE_SERVER}${API_CONFIG.endpoints.node.manager.profile}`, {
     method: 'PUT',
     headers: {
     'Content-Type': 'application/json',
@@ -1743,7 +1805,9 @@ class Trie {
     fetchStockData(); // Refresh data
     } catch (error) {
     console.error('Error updating product:', error);
-    alert('Failed to update product. Please try again.');
+    setModalTitle('Update Failed');
+    setModalMessage('Failed to update product. Please try again.');
+    setShowErrorModal(true);
     } finally {
     setLoading(false);
     }
@@ -1767,7 +1831,9 @@ class Trie {
     fetchStockData(); // Refresh data
     } catch (error) {
     console.error('Error removing product:', error);
-    alert('Failed to remove product. Please try again.');
+    setModalTitle('Remove Failed');
+    setModalMessage('Failed to remove product. Please try again.');
+    setShowErrorModal(true);
     } finally {
     setLoading(false);
     }
@@ -2046,9 +2112,13 @@ class Trie {
     const result = await saveStoreSettings();
     if (result.success) {
     setShowStoreSettings(false);
-    alert(`${result.message}`);
+    setModalTitle('Settings Updated!');
+    setModalMessage('Your store settings have been saved successfully.');
+    setShowSuccessModal(true);
     } else {
-    alert(`Failed to save settings: ${result.message}`);
+    setModalTitle('Save Failed');
+    setModalMessage(`Failed to save settings: ${result.message}`);
+    setShowErrorModal(true);
     }
     };
 
@@ -2056,9 +2126,13 @@ class Trie {
     const result = await saveStoreSettings();
     if (result.success) {
     setShowThemeSettings(false);
-    alert(`${result.message}`);
+    setModalTitle('Theme Updated!');
+    setModalMessage('Your store theme has been applied successfully.');
+    setShowSuccessModal(true);
     } else {
-    alert(`Failed to save theme: ${result.message}`);
+    setModalTitle('Theme Save Failed');
+    setModalMessage(`Failed to save theme: ${result.message}`);
+    setShowErrorModal(true);
     }
     };
 
@@ -3420,9 +3494,13 @@ class Trie {
     const result = await saveWhatsAppSettings();
     if (result.success) {
     setShowOutOfStockSettings(false);
-    alert('WhatsApp alert settings saved successfully!');
+    setModalTitle('Settings Saved!');
+    setModalMessage('WhatsApp alert settings have been saved successfully.');
+    setShowSuccessModal(true);
     } else {
-    alert(`❌ Failed to save settings: ${result.message}`);
+    setModalTitle('Save Failed');
+    setModalMessage(`Failed to save settings: ${result.message}`);
+    setShowErrorModal(true);
     }
     }}
     >
@@ -3493,94 +3571,172 @@ class Trie {
 
     return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className={`rounded-xl p-8 max-w-lg w-full mx-4 shadow-2xl max-h-[80vh] overflow-y-auto backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
+    <div className={`rounded-xl p-8 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
     <h3 className={`text-2xl font-bold mb-6 text-center ${theme.text}`}>
-    Manager Profile
+    Manager Profile & Security
     </h3>
 
     <div className="space-y-6">
-    <div className="relative">
-    <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
-    Manager Name
-    </label>
-    <div className="relative">
-    <input
-    type="text"
-    value={managerProfile.name}
-    onChange={(e) => setManagerProfile({...managerProfile, name: e.target.value})}
-    className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
-    placeholder="Enter manager name"
-    disabled={profileLoading}
-    />
-    <button className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${theme.textSecondary} hover:${theme.text}`}>
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-    </button>
-    </div>
+    {/* Manager Profile Section */}
+    <div className="space-y-4">
+        <h4 className={`text-lg font-semibold ${theme.text} border-b ${theme.border} pb-2`}>
+            Profile Information
+        </h4>
+        
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Manager Name
+        </label>
+        <div className="relative">
+        <input
+        type="text"
+        value={managerProfile.name}
+        onChange={(e) => setManagerProfile({...managerProfile, name: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
+        placeholder="Enter manager name"
+        disabled={profileLoading}
+        />
+        </div>
+        </div>
+
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Store Address
+        </label>
+        <div className="relative">
+        <textarea
+        value={managerProfile.storeAddress}
+        onChange={(e) => setManagerProfile({...managerProfile, storeAddress: e.target.value})}
+        rows={3}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
+        placeholder="Enter store address"
+        disabled={profileLoading}
+        />
+        </div>
+        </div>
+
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Email Address
+        </label>
+        <div className="relative">
+        <input
+        type="email"
+        value={managerProfile.email}
+        onChange={(e) => setManagerProfile({...managerProfile, email: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
+        placeholder="Enter email address"
+        disabled={profileLoading}
+        />
+        </div>
+        </div>
+
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Contact Number
+        </label>
+        <div className="relative">
+        <input
+        type="tel"
+        value={managerProfile.contact}
+        onChange={(e) => setManagerProfile({...managerProfile, contact: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
+        placeholder="Enter contact number"
+        disabled={profileLoading}
+        />
+        </div>
+        </div>
     </div>
 
-    <div className="relative">
-    <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
-    Store Address
-    </label>
-    <div className="relative">
-    <textarea
-    value={managerProfile.storeAddress}
-    onChange={(e) => setManagerProfile({...managerProfile, storeAddress: e.target.value})}
-    rows={3}
-    className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
-    placeholder="Enter store address"
-    disabled={profileLoading}
-    />
-    <button className={`absolute right-3 top-3 ${theme.textSecondary} hover:${theme.text}`}>
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-    </button>
-    </div>
-    </div>
+    {/* Password Update Section */}
+    <div className="space-y-4">
+        <h4 className={`text-lg font-semibold ${theme.text} border-b ${theme.border} pb-2`}>
+            Security Settings
+        </h4>
+        
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Current Password
+        </label>
+        <div className="relative">
+        <input
+        type={showCurrentPassword ? 'text' : 'password'}
+        value={passwordData.currentPassword}
+        onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border} ${passwordErrors.currentPassword ? 'border-red-500' : ''}`}
+        placeholder="Enter current password to update"
+        disabled={profileLoading}
+        />
+        <button
+        type="button"
+        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+        {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        </div>
+        {passwordErrors.currentPassword && (
+        <p className="text-red-500 text-sm mt-1">{passwordErrors.currentPassword}</p>
+        )}
+        </div>
 
-    <div className="relative">
-    <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
-    Email Address
-    </label>
-    <div className="relative">
-    <input
-    type="email"
-    value={managerProfile.email}
-    onChange={(e) => setManagerProfile({...managerProfile, email: e.target.value})}
-    className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
-    placeholder="Enter email address"
-    disabled={profileLoading}
-    />
-    <button className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${theme.textSecondary} hover:${theme.text}`}>
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-    </button>
-    </div>
-    </div>
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        New Password
+        </label>
+        <div className="relative">
+        <input
+        type={showNewPassword ? 'text' : 'password'}
+        value={passwordData.newPassword}
+        onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border} ${passwordErrors.newPassword ? 'border-red-500' : ''}`}
+        placeholder="Enter new password"
+        disabled={profileLoading}
+        />
+        <button
+        type="button"
+        onClick={() => setShowNewPassword(!showNewPassword)}
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        </div>
+        {passwordErrors.newPassword && (
+        <p className="text-red-500 text-sm mt-1">{passwordErrors.newPassword}</p>
+        )}
+        </div>
 
-    <div className="relative">
-    <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
-    Contact Number
-    </label>
-    <div className="relative">
-    <input
-    type="tel"
-    value={managerProfile.contact}
-    onChange={(e) => setManagerProfile({...managerProfile, contact: e.target.value})}
-    className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border}`}
-    placeholder="Enter contact number"
-    disabled={profileLoading}
-    />
-    <button className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${theme.textSecondary} hover:${theme.text}`}>
-        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-        </svg>
-    </button>
-    </div>
+        <div className="relative">
+        <label className={`block text-sm font-medium mb-2 ${theme.textSecondary}`}>
+        Confirm New Password
+        </label>
+        <div className="relative">
+        <input
+        type={showConfirmPassword ? 'text' : 'password'}
+        value={passwordData.confirmPassword}
+        onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+        className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 backdrop-blur-sm ${theme.cardBg} ${theme.text} ${theme.border} ${passwordErrors.confirmPassword ? 'border-red-500' : ''}`}
+        placeholder="Confirm new password"
+        disabled={profileLoading}
+        />
+        <button
+        type="button"
+        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+        </div>
+        {passwordErrors.confirmPassword && (
+        <p className="text-red-500 text-sm mt-1">{passwordErrors.confirmPassword}</p>
+        )}
+        </div>
+        
+        <div className={`p-3 rounded-lg ${theme.gradientOverlay} border ${theme.border}`}>
+        <p className={`text-sm ${theme.textSecondary}`}>
+        💡 Leave password fields empty to only update profile information.
+        </p>
+        </div>
     </div>
     </div>
 
@@ -3588,22 +3744,32 @@ class Trie {
     <Button 
     className="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg rounded-lg"
     onClick={async () => {
-    const result = await saveManagerProfile();
+    const hasPasswordData = passwordData.currentPassword || passwordData.newPassword || passwordData.confirmPassword;
+    const result = await saveManagerProfile(hasPasswordData);
     if (result.success) {
     setShowProfileSettings(false);
-    alert('Manager profile saved successfully!');
+    setModalTitle('Profile Updated!');
+    setModalMessage(hasPasswordData ? 'Your profile and password have been updated successfully.' : 'Your profile information has been updated successfully.');
+    setShowSuccessModal(true);
     } else {
-    alert(`❌ Failed to save profile: ${result.message}`);
+    setModalTitle('Update Failed');
+    setModalMessage(result.message);
+    setShowErrorModal(true);
     }
     }}
     disabled={profileLoading}
     >
-    {profileLoading ? 'Saving...' : 'Save Profile'}
+    {profileLoading ? 'Updating...' : 'Update Profile'}
     </Button>
     <Button 
     variant="outline" 
     className={`flex-1 rounded-lg backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10`}
-    onClick={() => setShowProfileSettings(false)}
+    onClick={() => {
+    setShowProfileSettings(false);
+    // Reset password fields
+    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    setPasswordErrors({});
+    }}
     >
     Cancel
     </Button>
@@ -4133,6 +4299,73 @@ class Trie {
     );
     };
 
+    // Success Modal Component
+    const renderSuccessModal = () => {
+        if (!showSuccessModal) return null;
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className={`rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
+                    <div className="text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
+                            <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                        <h3 className={`text-lg font-medium ${theme.text} mb-2`}>
+                            {modalTitle || 'Success!'}
+                        </h3>
+                        <p className={`text-sm ${theme.textSecondary} mb-6`}>
+                            {modalMessage}
+                        </p>
+                        <Button 
+                            className="bg-gradient-to-r from-green-500 to-green-600 hover:shadow-lg rounded-lg px-6 py-2"
+                            onClick={() => {
+                                setShowSuccessModal(false);
+                                setModalMessage('');
+                                setModalTitle('');
+                            }}
+                        >
+                            Got it!
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Error Modal Component
+    const renderErrorModal = () => {
+        if (!showErrorModal) return null;
+        
+        return (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className={`rounded-xl p-8 max-w-md w-full mx-4 shadow-2xl backdrop-blur-md ${theme.cardBg} ${theme.border} border`}>
+                    <div className="text-center">
+                        <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/20 mb-4">
+                            <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                        </div>
+                        <h3 className={`text-lg font-medium ${theme.text} mb-2`}>
+                            {modalTitle || 'Error'}
+                        </h3>
+                        <p className={`text-sm ${theme.textSecondary} mb-6`}>
+                            {modalMessage}
+                        </p>
+                        <Button 
+                            variant="outline"
+                            className={`${theme.border} ${theme.text} hover:bg-red-500/10 hover:border-red-500/50 rounded-lg px-6 py-2`}
+                            onClick={() => {
+                                setShowErrorModal(false);
+                                setModalMessage('');
+                                setModalTitle('');
+                            }}
+                        >
+                            Try Again
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
     <div className={`min-h-screen transition-all duration-500 ${theme.bg}`}>
     {/* Animated Background Elements for Seasonal Themes */}
@@ -4205,15 +4438,24 @@ class Trie {
 
     {/* Theme Selector & Controls */}
     <div className="flex items-center space-x-6">
-    <Link to="/">
+    {/* Logout Button */}
     <Button
     variant="outline"
-    className={`flex items-center space-x-2 transition-all duration-200 backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-purple-500/10`}
+    className={`flex items-center space-x-2 transition-all duration-200 backdrop-blur-sm ${theme.border} ${theme.text} hover:bg-red-500/10 hover:border-red-500/50`}
+    onClick={() => {
+    // Clear manager authentication data
+    localStorage.removeItem('managerToken');
+    localStorage.removeItem('loggedInManager');
+    localStorage.removeItem('managerId');
+    localStorage.removeItem('managerRole');
+    
+    // Redirect to landing page
+    navigate('/');
+    }}
     >
-    <ArrowLeft className="h-4 w-4" />
-    <span>Back to Home</span>
+    <LogOut className="h-4 w-4" />
+    <span>Logout</span>
     </Button>
-    </Link>
     </div>
     </div>
     </div>
@@ -4426,6 +4668,10 @@ class Trie {
     {renderPromotionalMessagesModal()}
     {renderCustomerProfilesModal()}
     {renderExportOptionsModal()}
+    
+    {/* Success and Error Modals */}
+    {renderSuccessModal()}
+    {renderErrorModal()}
 
     {/* Coupon Management Modal */}
     {showCouponManagement && (
