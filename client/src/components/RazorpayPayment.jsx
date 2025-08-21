@@ -155,8 +155,8 @@ const RazorpayPayment = ({
                     ✅ Test Payment Details:
                 </p>
                 <div className="text-xs text-green-600 dark:text-green-300 space-y-1">
-                    <p><strong>✅ Card (Success):</strong> 4111 1111 1111 1111</p>
-                    <p><strong>CVV:</strong> 123 | <strong>Expiry:</strong> 12/25 | <strong>OTP:</strong> Click "Skip → Successful"</p>
+                    <p><strong>✅ Card (Success):</strong> 2305 3242 5784 8228</p>
+                    <p><strong>CVV:</strong> 3 digit | <strong>Expiry:</strong> Any Future date</p>
                     <p><strong>✅ UPI (Success):</strong> success@razorpay</p>
                     <p><strong>❌ UPI (Fail):</strong> failure@razorpay</p>
                 </div>
