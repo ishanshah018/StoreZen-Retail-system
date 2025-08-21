@@ -11,7 +11,10 @@ from .views import (
     twilio_account_status,
     download_stock_pdf,
     restock_product,
-    update_stock_after_purchase
+    update_stock_after_purchase,
+    create_payment_order,
+    verify_payment,
+    get_payment_status
 )
 
 router = DefaultRouter()
@@ -29,4 +32,8 @@ urlpatterns = [
     path('manager/download-stock-pdf/', download_stock_pdf, name='download-stock-pdf'),
     path('manager/restock-product/', restock_product, name='restock-product'),
     path('billing/update-stock/', update_stock_after_purchase, name='update-stock-after-purchase'),
+    # Razorpay Payment endpoints
+    path('payment/create-order/', create_payment_order, name='create-payment-order'),
+    path('payment/verify/', verify_payment, name='verify-payment'),
+    path('payment/status/', get_payment_status, name='payment-status'),
 ]

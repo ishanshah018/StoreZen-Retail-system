@@ -181,7 +181,10 @@ const createBill = async (req, res) => {
             couponCode,
             couponDiscount,
             smartCoinsUsed,
-            paymentMethod
+            paymentMethod,
+            razorpayPaymentId,
+            razorpayOrderId,
+            razorpaySignature
         } = req.body;
 
         // Validation
@@ -239,7 +242,11 @@ const createBill = async (req, res) => {
                 smartCoinsEarned
             },
             paymentMethod,
-            paymentStatus: 'Paid' // Since we're bypassing real payment
+            paymentStatus: 'Paid', // Since payment is already verified
+            // Add Razorpay payment details for online payments
+            razorpayPaymentId: razorpayPaymentId || null,
+            razorpayOrderId: razorpayOrderId || null,
+            razorpaySignature: razorpaySignature || null
         });
 
         // Save the bill

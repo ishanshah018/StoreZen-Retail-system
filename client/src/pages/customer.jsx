@@ -23,7 +23,7 @@ GradientBadge
 import {
     User,ShoppingCart,Receipt,FileText,Ticket,Coins,BarChart,Star,Heart, 
     Send,Store,LogOut,ArrowLeft,Loader2,AlertCircle,Package,Search,X,Plus,Minus,CheckCircle,XCircle,
-    CreditCard,Smartphone,Tag,Check,IndianRupee
+    CreditCard,Tag,Check,IndianRupee
 } from "lucide-react";
 
 // Chart.js components
@@ -45,6 +45,9 @@ import { API_CONFIG, buildApiUrl } from '../lib/apiConfig';
 
 // Smart Shopping Assistant
 import SmartShoppingAssistant from '../components/SmartShoppingAssistant';
+
+// Razorpay Payment Component
+import RazorpayPayment from '../components/RazorpayPayment';
 
 // Register Chart.js components
 ChartJS.register(
@@ -966,6 +969,95 @@ const handleSmartCoinsChange = (amount) => {
 /** Calculate final amount */
 const calculateFinalAmount = () => {
     return Math.max(0, cartTotal - couponDiscount - smartCoinsToUse);
+};
+
+/** Handle Razorpay payment success */
+const handleRazorpaySuccess = async (paymentData) => {
+    try {
+        console.log('Handling payment success:', paymentData);
+        setBillingLoading(true);
+        setBillingError('');
+        
+        const userId = localStorage.getItem('userId');
+        const customerName = localStorage.getItem('customerName');
+        const customerEmail = localStorage.getItem('loggedInUser');
+        
+        // Create bill with Razorpay payment data
+        const billData = {
+            customerId: userId,
+            customerName: customerName,
+            customerEmail: customerEmail || 'customer@email.com',
+            items: cart.map(item => ({
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                price: item.price,
+                quantity: item.quantity
+            })),
+            subtotal: cartTotal,
+            couponCode: appliedCoupon?.code || null,
+            couponDiscount: couponDiscount,
+            smartCoinsUsed: smartCoinsToUse,
+            paymentMethod: 'Online', // Set to Online instead of selectedPaymentMethod
+            razorpayPaymentId: paymentData.paymentId,
+            razorpayOrderId: paymentData.orderId,
+            razorpaySignature: paymentData.signature
+        };
+        
+        console.log('Creating bill with data:', billData);
+        
+        // Create bill
+        const billResponse = await fetch(buildApiUrl('node', API_CONFIG.endpoints.node.billing.createBill), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(billData)
+        });
+        
+        if (!billResponse.ok) throw new Error('Failed to create bill');
+        
+        const billResult = await billResponse.json();
+        console.log('Bill creation result:', billResult);
+        
+        if (!billResult.success) {
+            setBillingError(billResult.message || 'Failed to create bill');
+            setBillingLoading(false);
+            return;
+        }
+        
+        // Success - show bill and update state
+        console.log('Payment successful, updating UI...');
+        setGeneratedBill(billResult.bill);
+        setSmartCoinsBalance(billResult.newSmartCoinsBalance);
+        setBillingStep('success');
+        setShowPaymentSuccess(true); // Show success animation
+        
+        // Hide success animation after 3 seconds
+        setTimeout(() => {
+            setShowPaymentSuccess(false);
+        }, 3000);
+        
+        // Clear cart and reset state
+        setCart([]);
+        setCartTotal(0);
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        setSmartCoinsToUse(0);
+        setSelectedPaymentMethod('');
+        
+    } catch (error) {
+        console.error('Error processing billing after payment:', error);
+        setBillingError('Payment processing failed after successful payment. Please contact support.');
+    } finally {
+        setBillingLoading(false);
+    }
+};
+
+/** Handle Razorpay payment failure */
+const handleRazorpayFailure = (error) => {
+    console.error('Payment failed:', error);
+    setBillingError(`Payment failed: ${error}`);
+    setBillingLoading(false);
+    // Don't change the billing step, keep user on preview page to retry
 };
 
 /** Process payment and create bill */
@@ -4708,9 +4800,8 @@ return (
                     
                     <div className="space-y-3">
                         {[
-                        { id: 'Cash', label: 'Cash Payment', icon: IndianRupee, color: 'from-green-500 to-emerald-500' },
-                        { id: 'Card', label: 'Credit/Debit Card', icon: CreditCard, color: 'from-blue-500 to-indigo-500' },
-                        { id: 'UPI', label: 'UPI Payment', icon: Smartphone, color: 'from-purple-500 to-pink-500' }
+                        { id: 'Cash', label: 'Cash Payment', icon: IndianRupee, color: 'from-green-500 to-emerald-500', description: 'Traditional cash payment' },
+                        { id: 'Online', label: 'Online Payment', icon: CreditCard, color: 'from-blue-500 to-purple-500', description: 'Powered by Razorpay (All methods)' }
                         ].map((method, index) => (
                         <div 
                             key={method.id} 
@@ -4727,10 +4818,18 @@ return (
                         >
                             <div className="flex items-center space-x-3">
                                 <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${method.color} flex items-center justify-center text-white`}>
-                                <method.icon className="h-5 w-5" />
+                                    <method.icon className="h-5 w-5" />
                                 </div>
                                 <div className="flex-1">
-                                <span className={`font-medium ${themeStyles.text}`}>{method.label}</span>
+                                    <div className="flex items-center justify-between">
+                                        <span className={`font-medium ${themeStyles.text}`}>{method.label}</span>
+                                        {method.id === 'Online' && (
+                                            <div className="px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-300 rounded-full text-xs font-medium">
+                                                Demo
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className={`text-sm ${themeStyles.textSecondary} mt-1`}>{method.description}</p>
                                 </div>
                             </div>
                         </div>
@@ -4974,25 +5073,52 @@ return (
                     </div>
                 </div>
 
-                {/* Confirm Payment Button */}
-                <button
-                    onClick={processBilling}
-                    disabled={billingLoading}
-                    className={`w-full py-4 px-6 rounded-lg font-bold text-lg transition-all duration-200 ${
-                    billingLoading
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transform hover:scale-105'
-                    }`}
-                >
-                    {billingLoading ? (
-                    <div className="flex items-center justify-center space-x-2">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                        <span>Processing Payment...</span>
-                    </div>
-                    ) : (
-                    <>Pay ₹{calculateFinalAmount().toFixed(2)}</>
-                    )}
-                </button>
+                {/* Payment Buttons - Different for Cash vs Card/UPI */}
+                {selectedPaymentMethod === 'Cash' ? (
+                    // Cash Payment Button
+                    <button
+                        onClick={processBilling}
+                        disabled={billingLoading}
+                        className={`w-full py-4 px-6 rounded-lg font-bold text-lg transition-all duration-200 ${
+                        billingLoading
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-lg hover:shadow-xl transform hover:scale-105'
+                        }`}
+                    >
+                        {billingLoading ? (
+                        <div className="flex items-center justify-center space-x-2">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                            <span>Processing Payment...</span>
+                        </div>
+                        ) : (
+                        <div className="flex items-center justify-center space-x-2">
+                            <IndianRupee className="h-6 w-6" />
+                            <span>Complete Cash Payment - ₹{calculateFinalAmount().toFixed(2)}</span>
+                        </div>
+                        )}
+                    </button>
+                ) : (
+                    // Razorpay Payment for Online Payment
+                    <RazorpayPayment
+                        orderData={{
+                            totalAmount: calculateFinalAmount(),
+                            items: cart.map(item => ({
+                                productId: item.id,
+                                quantity: item.quantity,
+                                name: item.name,
+                                price: item.price
+                            })),
+                            customerName: localStorage.getItem('customerName') || 'Customer',
+                            customerEmail: localStorage.getItem('loggedInUser') || 'customer@storezen.com',
+                            customerPhone: '9999999999'
+                        }}
+                        onSuccess={handleRazorpaySuccess}
+                        onFailure={handleRazorpayFailure}
+                        themeStyles={themeStyles}
+                        disabled={billingLoading}
+                        buttonText={`Pay ₹${calculateFinalAmount().toFixed(2)} via Online Payment`}
+                    />
+                )}
 
                 {/* Error Message */}
                 {billingError && (
