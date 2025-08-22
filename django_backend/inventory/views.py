@@ -2,6 +2,7 @@ import json
 import requests
 import razorpay
 import time
+import os
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -16,9 +17,9 @@ from .whatsapp_service import WhatsAppService
 # Node.js server configuration for manager profile data
 NODE_SERVER_URL = 'http://localhost:8080'
 
-# Razorpay configuration - REPLACE WITH YOUR API KEYS
-RAZORPAY_KEY_ID = 'rzp_test_R7qN0p2y0CYUSj'  # Replace with your test key
-RAZORPAY_KEY_SECRET = 'XzMy2g2H6fxsP1TwJrl8H222'  # Replace with your test secret
+# Razorpay configuration - Load from environment variables
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', 'rzp_test_defaultkey')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', 'defaultsecret')
 
 # Initialize Razorpay client
 razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
